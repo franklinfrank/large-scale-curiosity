@@ -67,8 +67,10 @@ class ProcessFrame84(gym.ObservationWrapper):
             img = np.reshape(frame, [250, 160, 3]).astype(np.float32)
         elif frame.size == 224 * 240 * 3:  # mario resolution
             img = np.reshape(frame, [224, 240, 3]).astype(np.float32)
+        elif frame.size == 84 * 84 * 3:
+            img = np.reshape(frame, [84, 84, 3]).astype(np.float32)
         else:
-            assert False, "Unknown resolution." + str(frame.size)
+            assert False, "Unknown resolution." + str(frame.shape)
         img = img[:, :, 0] * 0.299 + img[:, :, 1] * 0.587 + img[:, :, 2] * 0.114
         size = (84, 110 if crop else 84)
         resized_screen = np.array(Image.fromarray(img).resize(size,

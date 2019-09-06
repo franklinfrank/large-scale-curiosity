@@ -8,6 +8,7 @@ import os.path as osp
 from functools import partial
 
 import gym
+import gym_deepmindlab
 import tensorflow as tf
 from baselines import logger
 from baselines.bench import Monitor
@@ -119,7 +120,12 @@ class Trainer(object):
 
 
 def make_env_all_params(rank, add_monitor, args):
-    if args["env_kind"] == 'atari':
+    if args["env_kind"] == 'deepmind':
+        env = gym.make(args['env'])
+        env = MaxAndSkipEnv(env, skip=4)
+        env = ProcessFrame84(env, crop=False)
+        env = FrameStack(env, 4)
+    elif args["env_kind"] == 'atari':
         env = gym.make(args['env'])
         assert 'NoFrameskip' in env.spec.id
         env = NoopResetEnv(env, noop_max=args['noop_max'])
@@ -152,7 +158,7 @@ def get_experiment_environment(**args):
     process_seed = args["seed"] + 1000 * MPI.COMM_WORLD.Get_rank()
     process_seed = hash_seed(process_seed, max_bytes=4)
     set_global_seeds(process_seed)
-    setup_mpi_gpus()
+    #setup_mpi_gpus()
 
     logger_context = logger.scoped_configure(dir=None,
                                              format_strs=['stdout', 'log',
@@ -162,10 +168,10 @@ def get_experiment_environment(**args):
 
 
 def add_environments_params(parser):
-    parser.add_argument('--env', help='environment ID', default='BreakoutNoFrameskip-v4',
+    parser.add_argument('--env', help='environment ID', default='DeepmindLabNavMazeStatic01-v0',
                         type=str)
     parser.add_argument('--max-episode-steps', help='maximum number of timesteps for episode', default=4500, type=int)
-    parser.add_argument('--env_kind', type=str, default="atari")
+    parser.add_argument('--env_kind', type=str, default="deepmind")
     parser.add_argument('--noop_max', type=int, default=30)
 
 
