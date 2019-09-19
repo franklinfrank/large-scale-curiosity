@@ -65,7 +65,7 @@ class CnnPolicy(object):
 
     def save_model(self, model_name):
         self.saver = tf.train.Saver()
-	path = "/tmp/"+mode_name+".ckpt"
+	   path = "/tmp/"+mode_name+".ckpt"
         self.saver.save(getsess(), path)
         print("Model saved to path",path)
 

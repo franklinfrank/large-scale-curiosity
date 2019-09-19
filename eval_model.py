@@ -12,16 +12,25 @@ class Evaluator(object):
         self.exp_name = exp_name
         self.env = env
         self.num_episodes = num_episodes
+        self.policy = self.policy = CnnPolicy(
+            scope='pol',
+            ob_space=env.observation_space,
+            ac_space=env.action_space,
+            hidsize=512,
+            feat_dim=512,
+            ob_mean=0,
+            ob_std=0,
+            layernormalize=False,
+            nl=tf.nn.leaky_relu)
 
     def eval_model(self):
-        saver = tf.train.Saver()
-        saver.restore(sess, "/tmp/"+self.exp_name + ".ckpt")
+        self.policy.restore_model(self.exp_name)
         print("Model restored")
         for i in range(self.num_episodes):
             ob = self.env.reset()
             eprews = []
             for step in range(900):
-                action, vpred, nlp = get_ac_value_nlp(ob)
+                action, vpred, nlp = self.policy.get_ac_value_nlp(ob)
                 ob, rew, done, info = self.env.step(action)
                 if rew is None:
                     eprews.append(0)
