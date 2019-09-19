@@ -70,6 +70,8 @@ class Rollout(object):
             # if t > 0:
             #     prev_feat = self.prev_feat[l]
             #     prev_acs = self.prev_acs[l]
+            if prevrews is not None:
+            	prevrews = [x if x is not None else 0 for x in prevrews]
             for info in infos:
                 epinfo = info.get('episode', {})
                 mzepinfo = info.get('mz_episode', {})
@@ -111,6 +113,8 @@ class Rollout(object):
             for l in range(self.nlumps):
                 sli = slice(l * self.lump_stride, (l + 1) * self.lump_stride)
                 nextobs, ext_rews, nextnews, _ = self.env_get(l)
+                if ext_rews is not None:
+                    ext_rews = [x if x is not None else 0 for x in ext_rews]
                 self.buf_obs_last[sli, t // self.nsteps_per_seg] = nextobs
                 if t == self.nsteps - 1:
                     self.buf_new_last[sli] = nextnews

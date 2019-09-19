@@ -1,0 +1,27 @@
+Logging to ./logs/000-openai-2019-09-06-00-18-14-067255
+episode recordings saved to ./logs/000-openai-2019-09-06-00-18-14-067255/env0_0.pk
+---------------------------------------
+| advmean             | 0.67756855    |
+| advstd              | 0.22395805    |
+| ev                  | -0.0209       |
+| n_updates           | 1             |
+| opt_approxkl        | 1.2698176e-15 |
+| opt_aux             | 0.0           |
+| opt_clipfrac        | 0.0           |
+| opt_dyn_loss        | 0.11169399    |
+| opt_ent             | 1.7875649     |
+| opt_feat_var        | 0.0117510585  |
+| opt_pg              | 0.018700527   |
+| opt_tot             | 0.26852533    |
+| opt_vf              | 0.25161237    |
+| rank                | 0             |
+| recent_best_ext_ret | None          |
+| retmean             | 0.6927888     |
+| retstd              | 0.22165339    |
+| rew_mean            | 0.11258563    |
+| total_secs          | 110           |
+| tps                 | 149           |
+| ups                 | 0.00907       |
+| vpredmean           | 0.015220238   |
+| vpredstd            | 0.03870114    |
+---------------------------------------

@@ -62,7 +62,7 @@ def setup_mpi_gpus():
     Set CUDA_VISIBLE_DEVICES using MPI.
     """
     available_gpus = guess_available_gpus()
-
+    print(available_gpus)
     node_id = platform.node()
     nodes_ordered_by_rank = MPI.COMM_WORLD.allgather(node_id)
     processes_outranked_on_this_node = [n for n in nodes_ordered_by_rank[:MPI.COMM_WORLD.Get_rank()] if n == node_id]

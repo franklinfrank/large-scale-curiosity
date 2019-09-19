@@ -1,0 +1,58 @@
+Logging to ./logs/000-openai-2019-09-06-20-49-58-100327
+episode recordings saved to ./logs/000-openai-2019-09-06-20-49-58-100327/env0_0.pk
+---------------------------------------
+| advmean             | 0.68851054    |
+| advstd              | 0.20196162    |
+| ev                  | -0.0325       |
+| n_updates           | 1             |
+| opt_approxkl        | 1.6011498e-14 |
+| opt_aux             | 1.7941861     |
+| opt_clipfrac        | 0.0           |
+| opt_dyn_loss        | 0.2918511     |
+| opt_ent             | 1.7881683     |
+| opt_feat_var        | 0.023145517   |
+| opt_pg              | -0.015491679  |
+| opt_tot             | 0.24406733    |
+| opt_vf              | 0.26134717    |
+| rank                | 0             |
+| recent_best_ext_ret | None          |
+| retmean             | 0.80582744    |
+| retstd              | 0.19875652    |
+| rew_mean            | 0.28928158    |
+| total_secs          | 84.8          |
+| tps                 | 193           |
+| ups                 | 0.0118        |
+| vpredmean           | 0.11731684    |
+| vpredstd            | 0.066631004   |
+---------------------------------------
+---------------------------------------
+| advmean             | 0.25803918    |
+| advstd              | 0.1668176     |
+| best_ext_ret        | 14            |
+| epcount             | 128           |
+| eplen               | 225           |
+| eprew               | 1.9           |
+| eprew_recent        | 2.01          |
+| ev                  | 0.188         |
+| n_updates           | 2             |
+| opt_approxkl        | 1.0842022e-14 |
+| opt_aux             | 1.6026057     |
+| opt_clipfrac        | 0.0           |
+| opt_dyn_loss        | 0.13872677    |
+| opt_ent             | 1.7882164     |
+| opt_feat_var        | 0.08592183    |
+| opt_pg              | -0.032270104  |
+| opt_tot             | 0.015075233   |
+| opt_vf              | 0.049133554   |
+| rank                | 0             |
+| recent_best_ext_ret | 14            |
+| retmean             | 1.0022123     |
+| retstd              | 0.18508385    |
+| rew_mean            | 0.1332626     |
+| tcount              | 2.88e+04      |
+| total_secs          | 155           |
+| tps                 | 235           |
+| ups                 | 0.0143        |
+| vpredmean           | 0.7441731     |
+| vpredstd            | 0.11474375    |
+---------------------------------------

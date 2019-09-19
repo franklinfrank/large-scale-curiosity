@@ -1,0 +1,2 @@
+Logging to ./logs/000-openai-2019-09-06-00-31-09-050661
+episode recordings saved to ./logs/000-openai-2019-09-06-00-31-09-050661/env0_0.pk

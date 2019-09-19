@@ -9,6 +9,7 @@ from functools import partial
 
 import gym
 import gym_deepmindlab
+import datetime
 import tensorflow as tf
 from baselines import logger
 from baselines.bench import Monitor
@@ -117,12 +118,12 @@ class Trainer(object):
                 break
 
         self.agent.stop_interaction()
+        self.policy.save_model(self.hps['exp_name'])
 
 
 def make_env_all_params(rank, add_monitor, args):
     if args["env_kind"] == 'deepmind':
         env = gym.make(args['env'])
-        env = MaxAndSkipEnv(env, skip=4)
         env = ProcessFrame84(env, crop=False)
         env = FrameStack(env, 4)
     elif args["env_kind"] == 'atari':
@@ -158,11 +159,11 @@ def get_experiment_environment(**args):
     process_seed = args["seed"] + 1000 * MPI.COMM_WORLD.Get_rank()
     process_seed = hash_seed(process_seed, max_bytes=4)
     set_global_seeds(process_seed)
-    #setup_mpi_gpus()
+    setup_mpi_gpus()
 
-    logger_context = logger.scoped_configure(dir=None,
-                                             format_strs=['stdout', 'log',
-                                                          'csv'] if MPI.COMM_WORLD.Get_rank() == 0 else ['log'])
+    logger_context = logger.scoped_configure(dir='./logs/' + 
+						datetime.datetime.now().strftime(args["expID"] + "-openai-%Y-%m-%d-%H-%M-%S-%f"),
+						 format_strs=['stdout', 'log', 'csv', 'tensorboard'] if MPI.COMM_WORLD.Get_rank() == 0 else ['log'])
     tf_context = setup_tensorflow_session()
     return logger_context, tf_context
 
@@ -188,7 +189,7 @@ def add_optimization_params(parser):
 
 
 def add_rollout_params(parser):
-    parser.add_argument('--nsteps_per_seg', type=int, default=128)
+    parser.add_argument('--nsteps_per_seg', type=int, default=900)
     parser.add_argument('--nsegs_per_env', type=int, default=1)
     parser.add_argument('--envs_per_process', type=int, default=128)
     parser.add_argument('--nlumps', type=int, default=1)
@@ -203,6 +204,7 @@ if __name__ == '__main__':
     add_rollout_params(parser)
 
     parser.add_argument('--exp_name', type=str, default='')
+    parser.add_argument('--expID', type=str, default='000')
     parser.add_argument('--seed', help='RNG seed', type=int, default=0)
     parser.add_argument('--dyn_from_pixels', type=int, default=0)
     parser.add_argument('--use_news', type=int, default=0)

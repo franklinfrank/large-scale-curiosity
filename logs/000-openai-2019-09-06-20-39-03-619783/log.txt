@@ -1,0 +1,58 @@
+Logging to ./logs/000-openai-2019-09-06-20-39-03-619783
+episode recordings saved to ./logs/000-openai-2019-09-06-20-39-03-619783/env0_0.pk
+--------------------------------------
+| advmean             | 0.70648235   |
+| advstd              | 0.21451303   |
+| ev                  | -0.112       |
+| n_updates           | 1            |
+| opt_approxkl        | 1.066508e-14 |
+| opt_aux             | 1.8062108    |
+| opt_clipfrac        | 0.0          |
+| opt_dyn_loss        | 0.1670801    |
+| opt_ent             | 1.7887487    |
+| opt_feat_var        | 0.019180734  |
+| opt_pg              | -0.09272675  |
+| opt_tot             | 0.1934824    |
+| opt_vf              | 0.2879979    |
+| rank                | 0            |
+| recent_best_ext_ret | None         |
+| retmean             | 0.58117664   |
+| retstd              | 0.20343803   |
+| rew_mean            | 0.16262108   |
+| total_secs          | 83           |
+| tps                 | 197          |
+| ups                 | 0.012        |
+| vpredmean           | -0.12530568  |
+| vpredstd            | 0.05676407   |
+--------------------------------------
+--------------------------------------
+| advmean             | 0.3784536    |
+| advstd              | 0.17687513   |
+| best_ext_ret        | 14           |
+| epcount             | 128          |
+| eplen               | 225          |
+| eprew               | 2.03         |
+| eprew_recent        | 2.46         |
+| ev                  | 0.282        |
+| n_updates           | 2            |
+| opt_approxkl        | 8.743006e-15 |
+| opt_aux             | 1.5774716    |
+| opt_clipfrac        | 0.0          |
+| opt_dyn_loss        | 0.11468574   |
+| opt_ent             | 1.7872671    |
+| opt_feat_var        | 0.07734796   |
+| opt_pg              | -0.1643191   |
+| opt_tot             | -0.06491496  |
+| opt_vf              | 0.1011914    |
+| rank                | 0            |
+| recent_best_ext_ret | 14           |
+| retmean             | 0.9891906    |
+| retstd              | 0.2087629    |
+| rew_mean            | 0.10659539   |
+| tcount              | 2.88e+04     |
+| total_secs          | 153          |
+| tps                 | 233          |
+| ups                 | 0.0142       |
+| vpredmean           | 0.610737     |
+| vpredstd            | 0.109126695  |
+--------------------------------------

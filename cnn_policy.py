@@ -62,3 +62,14 @@ class CnnPolicy(object):
             getsess().run([self.a_samp, self.vpred, self.nlp_samp],
                           feed_dict={self.ph_ob: ob[:, None]})
         return a[:, 0], vpred[:, 0], nlp[:, 0]
+
+    def save_model(self, model_name):
+        self.saver = tf.train.Saver()
+	path = "/tmp/"+mode_name+".ckpt"
+        self.saver.save(getsess(), path)
+        print("Model saved to path",path)
+
+    def restore_model(self, model_name):
+        self.saver = tf.train.Saver()
+        path = "/tmp/"+mode_name+".ckpt"
+        self.saver.restore(getsess(), path)
