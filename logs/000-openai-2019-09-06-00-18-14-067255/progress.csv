@@ -1,2 +1,0 @@
-tps,opt_ent,retmean,vpredstd,vpredmean,rank,opt_aux,opt_clipfrac,ev,opt_pg,opt_tot,opt_dyn_loss,opt_feat_var,retstd,total_secs,advmean,advstd,opt_vf,n_updates,recent_best_ext_ret,opt_approxkl,rew_mean,ups
-148.58149169961186,1.7875649,0.6927888,0.03870114,0.015220238,0,0.0,0.0,-0.02090322971343994,0.018700527,0.26852533,0.11169399,0.0117510585,0.22165339,110.26945042610168,0.67756855,0.22395805,0.25161237,1,,1.2698176e-15,0.11258563,0.009068694561743888

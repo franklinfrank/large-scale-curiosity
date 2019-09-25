@@ -63,13 +63,20 @@ class CnnPolicy(object):
                           feed_dict={self.ph_ob: ob[:, None]})
         return a[:, 0], vpred[:, 0], nlp[:, 0]
 
+    def get_ac_value_nlp_eval(self, ob):
+        a, vpred, nlp = getsess().run([self.a_samp, self.vpred, self.nlp_samp],
+                          feed_dict={self.ph_ob: ((ob,),)})
+        return a[:,0], vpred[:,0], nlp[:,0]
+
     def save_model(self, model_name):
         self.saver = tf.train.Saver()
-	   path = "/tmp/"+mode_name+".ckpt"
+        path = "/tmp/"+model_name+".ckpt"
         self.saver.save(getsess(), path)
         print("Model saved to path",path)
 
     def restore_model(self, model_name):
+        path = "/tmp/" + model_name + ".ckpt"
+        
+       # self.saver = tf.train.import_meta_graph(path + ".meta")
         self.saver = tf.train.Saver()
-        path = "/tmp/"+mode_name+".ckpt"
         self.saver.restore(getsess(), path)

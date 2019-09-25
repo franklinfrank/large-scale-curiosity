@@ -159,6 +159,11 @@ class ShmemVecEnv(VecEnv):
         obs, rews, dones, infos = zip(*outs)
         return self._decode_obses(obs), np.array(rews), np.array(dones), infos
 
+    def get_env_zero_obs(self):
+        self.parent_pipes[0].send(('obs', None))
+        zero_env_obs = self.parent_pipes[0].recv()
+        return zero_env_obs
+
     def close(self):
         if self.waiting_step:
             self.step_wait()
@@ -199,6 +204,7 @@ def _subproc_worker(pipe, parent_pipe, env_fn_wrapper, obs_buf, obs_shape):
             dst = b.get_obj()
             dst_np = np.frombuffer(dst, dtype=_CT_TO_NP[dst._type_]).reshape(s)  # pylint: disable=W0212
             np.copyto(dst_np, o)
+    
 
     env = env_fn_wrapper.x()
     parent_pipe.close()
@@ -215,6 +221,9 @@ def _subproc_worker(pipe, parent_pipe, env_fn_wrapper, obs_buf, obs_shape):
             elif cmd == 'close':
                 pipe.send(None)
                 break
+            elif cmd == 'obs':
+                print("Obs command received")
+                pipe.send(env.unwrapped._last_observation)
             else:
                 raise RuntimeError('Got unrecognized cmd %s' % cmd)
     finally:
