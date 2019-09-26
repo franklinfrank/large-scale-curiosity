@@ -24,8 +24,9 @@ class Rollout(object):
         self.dynamics = dynamics
         self.exp_name = exp_name
         self.env_name = env_name
-        self.reward_fun = lambda ext_rew, int_rew: ext_rew_coeff * np.clip(ext_rew, -1., 1.) + int_rew_coeff * int_rew
-        self.evaluator = Evaluator(env_name, 3, exp_name, policy)
+#        self.reward_fun = lambda ext_rew, int_rew: ext_rew_coeff * np.clip(ext_rew, -1., 1.) + int_rew_coeff * int_rew
+        self.reward_fun = lambda ext_rew, int_rew: ext_rew_coeff*ext_rew + int_rew_coeff*int_rew
+        self.evaluator = Evaluator(env_name, 1, exp_name, policy)
         self.buf_vpreds = np.empty((nenvs, self.nsteps), np.float32)
         self.buf_nlps = np.empty((nenvs, self.nsteps), np.float32)
         self.buf_rews = np.empty((nenvs, self.nsteps), np.float32)
