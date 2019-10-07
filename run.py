@@ -71,7 +71,6 @@ class Trainer(object):
         self.dynamics = self.dynamics(auxiliary_task=self.feature_extractor,
                                       predict_from_pixels=hps['dyn_from_pixels'],
                                       feat_dim=512)
-
         self.agent = PpoOptimizer(
             scope='ppo',
             ob_space=self.ob_space,
@@ -91,7 +90,10 @@ class Trainer(object):
             normadv=hps['norm_adv'],
             ext_coeff=hps['ext_coeff'],
             int_coeff=hps['int_coeff'],
-            dynamics=self.dynamics
+            dynamics=self.dynamics,
+            exp_name = hps['exp_name'],
+            env_name=hps['env'],
+            video_log_freq=hps['video_log_freq']
         )
 
         self.agent.to_report['aux'] = tf.reduce_mean(self.feature_extractor.loss)
@@ -213,6 +215,7 @@ if __name__ == '__main__':
     parser.add_argument('--layernorm', type=int, default=0)
     parser.add_argument('--feat_learning', type=str, default="none",
                         choices=["none", "idf", "vaesph", "vaenonsph", "pix2pix"])
+    parser.add_argument('--video_log_freq', type=int, default=100)
 
     args = parser.parse_args()
 

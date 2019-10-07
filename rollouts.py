@@ -4,11 +4,14 @@ import numpy as np
 from mpi4py import MPI
 
 from recorder import Recorder
+import os
+import cv2
+from evaluator import Evaluator
 
 
 class Rollout(object):
-    def __init__(self, ob_space, ac_space, nenvs, nsteps_per_seg, nsegs_per_env, nlumps, envs, policy,
-                 int_rew_coeff, ext_rew_coeff, record_rollouts, dynamics):
+    def __init__(self, ob_space, ac_space, nenvs, nsteps_per_seg, nsegs_per_env, nlumps, envs, policy,int_rew_coeff, ext_rew_coeff, record_rollouts, 
+        dynamics, exp_name, env_name, video_log_freq):
         self.nenvs = nenvs
         self.nsteps_per_seg = nsteps_per_seg
         self.nsegs_per_env = nsegs_per_env
@@ -20,9 +23,12 @@ class Rollout(object):
         self.envs = envs
         self.policy = policy
         self.dynamics = dynamics
-
-        self.reward_fun = lambda ext_rew, int_rew: ext_rew_coeff * np.clip(ext_rew, -1., 1.) + int_rew_coeff * int_rew
-
+        self.exp_name = exp_name
+        self.env_name = env_name
+        self.video_log_freq = video_log_freq
+#        self.reward_fun = lambda ext_rew, int_rew: ext_rew_coeff * np.clip(ext_rew, -1., 1.) + int_rew_coeff * int_rew
+        self.reward_fun = lambda ext_rew, int_rew: ext_rew_coeff*ext_rew + int_rew_coeff*int_rew
+        self.evaluator = Evaluator(env_name, 1, exp_name, policy)
         self.buf_vpreds = np.empty((nenvs, self.nsteps), np.float32)
         self.buf_nlps = np.empty((nenvs, self.nsteps), np.float32)
         self.buf_rews = np.empty((nenvs, self.nsteps), np.float32)
@@ -65,8 +71,16 @@ class Rollout(object):
     def rollout_step(self):
         t = self.step_count % self.nsteps
         s = t % self.nsteps_per_seg
+        ep_num = self.step_count // self.nsteps_per_seg
         for l in range(self.nlumps):
             obs, prevrews, news, infos = self.env_get(l)
+#            if l == 0 and ep_num % 100 == 0:
+#               zero_env_obs = self.envs[0].get_env_zero_obs()
+#                dirname = os.path.abspath(os.path.dirname(__file__))
+#                image_folder = 'images'
+#                image_file = os.path.join(dirname, image_folder + "/" + self.exp_name +"_" + str(ep_num) + ".png")
+#                cv2.imwrite(image_file, zero_env_obs)
+                
             # if t > 0:
             #     prev_feat = self.prev_feat[l]
             #     prev_acs = self.prev_acs[l]
@@ -126,11 +140,14 @@ class Rollout(object):
                     #
                     # self.int_rew[sli] = int_rew
                     # self.buf_rews[sli, t] = self.reward_fun(ext_rew=ext_rews, int_rew=int_rew)
-
+            if self.video_log_freq > 0 and ep_num % self.video_log_freq == 0:
+                self.evaluator.eval_model(ep_num)
+            print("Episode {}".format(ep_num))
     def update_info(self):
         all_ep_infos = MPI.COMM_WORLD.allgather(self.ep_infos_new)
         all_ep_infos = sorted(sum(all_ep_infos, []), key=lambda x: x[0])
         if all_ep_infos:
+            print(all_ep_infos[0][1])
             all_ep_infos = [i_[1] for i_ in all_ep_infos]  # remove the step_count
             keys_ = all_ep_infos[0].keys()
             all_ep_infos = {k: [i[k] for i in all_ep_infos] for k in keys_}
