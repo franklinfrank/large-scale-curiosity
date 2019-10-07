@@ -54,6 +54,7 @@ class Rollout(object):
         self.all_scores = []
 
         self.step_count = 0
+        self.use_apples = use_apples
 
     def collect_rollout(self):
         self.ep_infos_new = []
@@ -85,7 +86,10 @@ class Rollout(object):
             #     prev_feat = self.prev_feat[l]
             #     prev_acs = self.prev_acs[l]
             if prevrews is not None:
-            	prevrews = [x if x is not None else 0 for x in prevrews]
+                if self.use_apples:
+                    prevrews = [x if x is not None else 0 for x in prevrews]
+                else:
+                    prevrews = [x if x is not None and x >= 10 else 0 for x in prevrews]
             for info in infos:
                 epinfo = info.get('episode', {})
                 mzepinfo = info.get('mz_episode', {})

@@ -93,7 +93,8 @@ class Trainer(object):
             dynamics=self.dynamics,
             exp_name = hps['exp_name'],
             env_name=hps['env'],
-            video_log_freq=hps['video_log_freq']
+            video_log_freq=hps['video_log_freq'],
+            use_apples=hps['use_apples']
         )
 
         self.agent.to_report['aux'] = tf.reduce_mean(self.feature_extractor.loss)
@@ -164,8 +165,8 @@ def get_experiment_environment(**args):
     setup_mpi_gpus()
 
     logger_context = logger.scoped_configure(dir='./logs/' + 
-						datetime.datetime.now().strftime(args["expID"] + "-openai-%Y-%m-%d-%H-%M-%S-%f"),
-						 format_strs=['stdout', 'log', 'csv', 'tensorboard'] if MPI.COMM_WORLD.Get_rank() == 0 else ['log'])
+                        datetime.datetime.now().strftime(args["expID"] + "-openai-%Y-%m-%d-%H-%M-%S-%f"),
+                         format_strs=['stdout', 'log', 'csv', 'tensorboard'] if MPI.COMM_WORLD.Get_rank() == 0 else ['log'])
     tf_context = setup_tensorflow_session()
     return logger_context, tf_context
 
@@ -216,6 +217,7 @@ if __name__ == '__main__':
     parser.add_argument('--feat_learning', type=str, default="none",
                         choices=["none", "idf", "vaesph", "vaenonsph", "pix2pix"])
     parser.add_argument('--video_log_freq', type=int, default=100)
+    parser.add_argument('--use_apples', type=int, default=1)
 
     args = parser.parse_args()
 

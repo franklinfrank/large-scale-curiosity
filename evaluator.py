@@ -17,8 +17,8 @@ class Evaluator(object):
         self.env = FrameStack(self.env, 4)
         self.num_episodes = 1
         self.policy = policy
-	if not path.exists('images'):
-	    os.mkdir('images')
+    if not path.exists('images'):
+        os.mkdir('images')
         self.image_folder = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'images')
 
     def eval_model(self, ep_num):
