@@ -107,7 +107,7 @@ class PpoOptimizer(object):
                                ext_rew_coeff=self.ext_coeff,
                                record_rollouts=self.use_recorder,
                                dynamics=dynamics, exp_name=self.exp_name, env_name=self.env_name,
-                               video_log_freq=video_log_freq, use_apples=self.use_apples)
+                               video_log_freq=self.video_log_freq, use_apples=self.use_apples)
 
         self.buf_advs = np.zeros((nenvs, self.rollout.nsteps), np.float32)
         self.buf_rets = np.zeros((nenvs, self.rollout.nsteps), np.float32)

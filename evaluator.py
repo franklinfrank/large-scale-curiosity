@@ -17,8 +17,8 @@ class Evaluator(object):
         self.env = FrameStack(self.env, 4)
         self.num_episodes = 1
         self.policy = policy
-    if not path.exists('images'):
-        os.mkdir('images')
+        if not os.path.exists('images'):
+            os.mkdir('images')
         self.image_folder = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'images')
 
     def eval_model(self, ep_num):
@@ -42,8 +42,6 @@ class Evaluator(object):
                     print("Episode finished after {} timesteps".format(step+1))
                     print("Episode Reward is {}".format(sum(eprews)))
                     break
-            dirname = os.path.abspath(os.path.dirname(__file__))
-            image_folder = 'images'
             for j in range(len(ep_images)):
                 image_file = os.path.join(self.image_folder, self.exp_name +"_{}_{}_{}_".format(ep_num, i, j) + ".png")
                 cv2.imwrite(image_file, ep_images[j])
