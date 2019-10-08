@@ -27,12 +27,21 @@ This is a TensorFlow based implementation for our [paper on large-scale study of
     }
 
 ### Installation and Usage
-The following command should train a pure exploration agent on Breakout with default experiment parameters.
+You will first need to install Deepmind Lab. Afterwards, you can install python dependencies by running
+```bash
+pip install -r requirements.txt
+```
+The following command should train a pure exploration agent on staticmaze01 with default experiment parameters.
 ```bash
 python run.py
 ```
 To use more than one gpu/machine, use MPI (e.g. `mpiexec -n 8 python run.py` should use 1024 parallel environments to collect experience instead of the default 128 on an 8 gpu machine).
 
+### Generating Video
+Install ffmpeg, then run the following command:
+```bash
+ffmpeg -r 15 -start_number 0 -i images/{exp_name}_{ep_num}_0_%d_.png -vcodec mpeg4 {video_name}.mp4
+```
 ### Data for plots in paper
 
 [Data for Figure-2](https://www.dropbox.com/s/ufr7o8g9omb9zpl/experiments.tar.gz): contains raw game score data along with the plotting code to generate Figure-2 in the paper.
