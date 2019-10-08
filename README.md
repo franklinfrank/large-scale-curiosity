@@ -27,7 +27,7 @@ This is a TensorFlow based implementation for our [paper on large-scale study of
     }
 
 ### Installation and Usage
-You will first need to install Deepmind Lab. Afterwards, you can install python dependencies by running
+Python version 3.5 should be installed. You will first need to install Deepmind Lab. Afterwards, you can install python dependencies by running
 ```bash
 pip install -r requirements.txt
 ```
