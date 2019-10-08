@@ -31,9 +31,11 @@ You will first need to install Deepmind Lab. Afterwards, you can install python 
 ```bash
 pip install -r requirements.txt
 ```
-The following command should train a pure exploration agent on staticmaze01 with default experiment parameters.
+The following command should train the agent that achieves the baseline results on staticmaze01:
 ```bash
-python run.py
+python run.py --exp_name randfeats_staticmaze01_usenews_extcoeff_1_intcoeff_.01_layernorm0_nepochs8_nsteps_per_seg512_envs_per_process32
+--use_news 1 --ext_coeff 1.0 --int_coeff 0.01 --layernorm 0 --feat_learning none --nepochs 8 --nsteps_per_seg 512
+--envs_per_process 32
 ```
 To use more than one gpu/machine, use MPI (e.g. `mpiexec -n 8 python run.py` should use 1024 parallel environments to collect experience instead of the default 128 on an 8 gpu machine).
 
