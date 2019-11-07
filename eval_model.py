@@ -22,7 +22,7 @@ def start_eval(**args):
 	exp_name = args['exp_name']
 	with tf.Session() as sess:
 		saver = tf.train.import_meta_graph("/tmp/" + exp_name + ".ckpt" + ".meta")
-		saver.restore(sess, "/tmp/" + exp_name + ".ckpt")
+		saver.restore(sess, "models/" + exp_name + ".ckpt")
 		vpred = tf.get_collection("vpred")[0]
 		a_samp = tf.get_collection("a_samp")[0]
 		entropy = tf.get_collection("entropy")[0]

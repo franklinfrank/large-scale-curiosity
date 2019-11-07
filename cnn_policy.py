@@ -1,5 +1,6 @@
 import tensorflow as tf
 from baselines.common.distributions import make_pdtype
+import os
 
 from utils import getsess, small_convnet, activ, fc, flatten_two_dims, unflatten_first_dim
 
@@ -74,14 +75,16 @@ class CnnPolicy(object):
                           feed_dict={self.ph_ob: ((ob,),)})
         return a[:,0], vpred[:,0], nlp[:,0]
 
-    def save_model(self, model_name):
+    def save_model(self, model_name, ep_num):
         self.saver = tf.train.Saver()
-        path = "/tmp/"+model_name+".ckpt"
+        if not os.path.exists("models"):
+            os.makedirs("models")
+        path = "models/"+model_name+ "_ep{}".format(ep_num) + ".ckpt"
         self.saver.save(getsess(), path)
         print("Model saved to path",path)
 
     def restore_model(self, model_name):
-        path = "/tmp/" + model_name + ".ckpt"
+        path = "models/" + model_name + ".ckpt"
         
        # self.saver = tf.train.import_meta_graph(path + ".meta")
         self.saver = tf.train.Saver()

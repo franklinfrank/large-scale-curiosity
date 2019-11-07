@@ -94,6 +94,7 @@ class Trainer(object):
             exp_name = hps['exp_name'],
             env_name=hps['env'],
             video_log_freq=hps['video_log_freq'],
+            model_save_freq=hps['model_save_freq'],
             use_apples=hps['use_apples']
         )
 
@@ -174,7 +175,7 @@ def get_experiment_environment(**args):
 def add_environments_params(parser):
     parser.add_argument('--env', help='environment ID', default='DeepmindLabNavMazeStatic01-v0',
                         type=str)
-    parser.add_argument('--max-episode-steps', help='maximum number of timesteps for episode', default=4500, type=int)
+    parser.add_argument('--max-episode-steps', help='maximum number of timesteps for episode', default=7200, type=int)
     parser.add_argument('--env_kind', type=str, default="deepmind")
     parser.add_argument('--noop_max', type=int, default=30)
 
@@ -217,6 +218,7 @@ if __name__ == '__main__':
     parser.add_argument('--feat_learning', type=str, default="none",
                         choices=["none", "idf", "vaesph", "vaenonsph", "pix2pix"])
     parser.add_argument('--video_log_freq', type=int, default=100)
+    parser.add_argument('--model_save_freq', type=int, default=25)
     parser.add_argument('--use_apples', type=int, default=1)
 
     args = parser.parse_args()

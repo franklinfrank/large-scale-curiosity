@@ -11,7 +11,7 @@ from evaluator import Evaluator
 
 class Rollout(object):
     def __init__(self, ob_space, ac_space, nenvs, nsteps_per_seg, nsegs_per_env, nlumps, envs, policy,int_rew_coeff, ext_rew_coeff, record_rollouts, 
-        dynamics, exp_name, env_name, video_log_freq, use_apples):
+        dynamics, exp_name, env_name, video_log_freq, model_save_freq, use_apples):
         self.nenvs = nenvs
         self.nsteps_per_seg = nsteps_per_seg
         self.nsegs_per_env = nsegs_per_env
@@ -146,7 +146,8 @@ class Rollout(object):
                     # self.buf_rews[sli, t] = self.reward_fun(ext_rew=ext_rews, int_rew=int_rew)
             if self.video_log_freq > 0 and ep_num % self.video_log_freq == 0:
                 self.evaluator.eval_model(ep_num)
-                self.policy.save_model(self.exp_name)
+            if self.model_save_freq > 0 and ep_num % self.model_save_freq == 0:
+                self.policy.save_model(self.exp_name, ep_num)
             print("Episode {}".format(ep_num))
 
     def update_info(self):
