@@ -146,7 +146,9 @@ class Rollout(object):
                     # self.buf_rews[sli, t] = self.reward_fun(ext_rew=ext_rews, int_rew=int_rew)
             if self.video_log_freq > 0 and ep_num % self.video_log_freq == 0:
                 self.evaluator.eval_model(ep_num)
+                self.policy.save_model(self.exp_name)
             print("Episode {}".format(ep_num))
+
     def update_info(self):
         all_ep_infos = MPI.COMM_WORLD.allgather(self.ep_infos_new)
         all_ep_infos = sorted(sum(all_ep_infos, []), key=lambda x: x[0])
@@ -207,3 +209,4 @@ class Rollout(object):
             else:
                 out = self.env_results[l]
         return out
+        

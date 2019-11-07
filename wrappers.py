@@ -67,6 +67,8 @@ class ProcessFrame84(gym.ObservationWrapper):
             img = np.reshape(frame, [250, 160, 3]).astype(np.float32)
         elif frame.size == 224 * 240 * 3:  # mario resolution
             img = np.reshape(frame, [224, 240, 3]).astype(np.float32)
+        elif frame.size == 640 * 480 * 3: #DM lab resolution
+            img = np.reshape(frame, [480, 640, 3]).astype(np.float32)
         elif frame.size == 84 * 84 * 3:
             img = np.reshape(frame, [84, 84, 3]).astype(np.float32)
         else:

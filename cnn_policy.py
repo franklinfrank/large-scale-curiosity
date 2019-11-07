@@ -42,6 +42,12 @@ class CnnPolicy(object):
             self.a_samp = pd.sample()
             self.entropy = pd.entropy()
             self.nlp_samp = pd.neglogp(self.a_samp)
+            tf.add_to_collection('vpred', self.vpred)
+            tf.add_to_collection('pd', self.pd)
+            tf.add_to_collection('a_samp', self.a_samp)
+            tf.add_to_collection('entropy', self.entropy)
+            tf.add_to_collection('nlp_samp', self.nlp_samp)
+            tf.add_to_collection('ph_ob', self.ph_ob)
 
     def get_features(self, x, reuse):
         x_has_timesteps = (x.get_shape().ndims == 5)
