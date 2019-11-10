@@ -25,6 +25,7 @@ class Rollout(object):
         self.dynamics = dynamics
         self.exp_name = exp_name
         self.env_name = env_name
+        self.model_save_freq = model_save_freq
         self.video_log_freq = video_log_freq
 #        self.reward_fun = lambda ext_rew, int_rew: ext_rew_coeff * np.clip(ext_rew, -1., 1.) + int_rew_coeff * int_rew
         self.reward_fun = lambda ext_rew, int_rew: ext_rew_coeff*ext_rew + int_rew_coeff*int_rew
