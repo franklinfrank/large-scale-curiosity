@@ -11,7 +11,7 @@ from evaluator import Evaluator
 
 class Rollout(object):
     def __init__(self, ob_space, ac_space, nenvs, nsteps_per_seg, nsegs_per_env, nlumps, envs, policy,int_rew_coeff, ext_rew_coeff, record_rollouts, 
-        dynamics, exp_name, env_name, video_log_freq, model_save_freq, use_apples):
+                    dynamics, exp_name, env_name, video_log_freq, model_save_freq, use_apples):
         self.nenvs = nenvs
         self.nsteps_per_seg = nsteps_per_seg
         self.nsegs_per_env = nsegs_per_env
@@ -26,6 +26,7 @@ class Rollout(object):
         self.exp_name = exp_name
         self.env_name = env_name
         self.video_log_freq = video_log_freq
+        self.model_save_freq = model_save_freq
 #        self.reward_fun = lambda ext_rew, int_rew: ext_rew_coeff * np.clip(ext_rew, -1., 1.) + int_rew_coeff * int_rew
         self.reward_fun = lambda ext_rew, int_rew: ext_rew_coeff*ext_rew + int_rew_coeff*int_rew
         self.evaluator = Evaluator(env_name, 1, exp_name, policy)

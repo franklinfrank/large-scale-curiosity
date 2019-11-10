@@ -79,13 +79,19 @@ class CnnPolicy(object):
         self.saver = tf.train.Saver()
         if not os.path.exists("models"):
             os.makedirs("models")
-        path = "models/"+model_name+ "_ep{}".format(ep_num) + ".ckpt"
+        if ep_num:
+            path = "models/"+model_name+ "_ep{}".format(ep_num) + ".ckpt"
+        else:
+            path = "models/"+model_name+ "_{}".format("final") + ".ckpt"
         self.saver.save(getsess(), path)
         print("Model saved to path",path)
 
     def restore_model(self, model_name):
-        path = "models/" + model_name + ".ckpt"
-        
-       # self.saver = tf.train.import_meta_graph(path + ".meta")
-        self.saver = tf.train.Saver()
-        self.saver.restore(getsess(), path)
+        saver = tf.train.import_meta_graph("models/" + model_name + ".ckpt" + ".meta")
+        saver.restore(getsess(), "models/" + model_name + ".ckpt")
+        self.vpred = tf.get_collection("vpred")[0]
+        self.a_samp = tf.get_collection("a_samp")[0]
+        self.entropy = tf.get_collection("entropy")[0]
+        self.nlp_samp = tf.get_collection("nlp_samp")[0]
+        self.ph_ob = tf.get_collection("ph_ob")[0]
+

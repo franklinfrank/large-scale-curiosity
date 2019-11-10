@@ -27,50 +27,84 @@ from wrappers import MontezumaInfoWrapper, make_mario_env, make_robo_pong, make_
 
 def start_experiment(**args):
     make_env = partial(make_env_all_params, add_monitor=True, args=args)
-
     trainer = Trainer(make_env=make_env,
                       num_timesteps=args['num_timesteps'], hps=args,
                       envs_per_process=args['envs_per_process'])
     log, tf_sess = get_experiment_environment(**args)
+
     with log, tf_sess:
         logdir = logger.get_dir()
         print("results will be saved to ", logdir)
         trainer.train()
+        policy = trainer.policy
+        feat_ext = trainer.feature_extractor
+        dyn = trainer.dynamics
+        if args['tune_envs']:
+            for i in range(len(args['tune_envs'])):
+                tune_make_env = partial(make_tune_env, add_monitor=True, args=args, tune_num=i)
+                new_exp = args['exp_name'] + "_tune_on_{}".format(args['tune_envs'][i])
+                new_trainer = Trainer(make_env=tune_make_env, num_timsteps=args['num_timesteps_tune'],
+                                      hps=args, envs_per_process=args['envs_per_process'], exp_name=new_exp,
+                                      env_name=args['tune_envs'][i], policy=policy,
+                                      feat_ext=feat_ext, dyn=dyn)
+                new_trainer.policy.restore_model(args['exp_name'] + "_final")
+                new_trainer.train()
 
 
 class Trainer(object):
-    def __init__(self, make_env, hps, num_timesteps, envs_per_process):
+    def __init__(self, make_env, hps, num_timesteps, envs_per_process, exp_name=None, env_name=None, policy=None, feat_ext=None, dyn=None):
         self.make_env = make_env
         self.hps = hps
         self.envs_per_process = envs_per_process
         self.num_timesteps = num_timesteps
         self._set_env_vars()
+        if exp_name:
+            self.exp_name = exp_name
+        else:
+            self.exp_name = hps['exp_name']
+        if env_name:
+            self.env_name = env_name
+        else:
+            self.env_name = hps['env']
 
-        self.policy = CnnPolicy(
-            scope='pol',
-            ob_space=self.ob_space,
-            ac_space=self.ac_space,
-            hidsize=512,
-            feat_dim=512,
-            ob_mean=self.ob_mean,
-            ob_std=self.ob_std,
-            layernormalize=False,
-            nl=tf.nn.leaky_relu)
+        if policy is None:
+            self.policy = CnnPolicy(
+                scope='pol',
+                ob_space=self.ob_space,
+                ac_space=self.ac_space,
+                hidsize=512,
+                feat_dim=512,
+                ob_mean=self.ob_mean,
+                ob_std=self.ob_std,
+                layernormalize=False,
+                nl=tf.nn.leaky_relu)
+        else:
+            self.policy = policy
+        if exp_name:
+            self.policy.restore_model(self.exp_name + "_final")
 
-        self.feature_extractor = {"none": FeatureExtractor,
-                                  "idf": InverseDynamics,
-                                  "vaesph": partial(VAE, spherical_obs=True),
-                                  "vaenonsph": partial(VAE, spherical_obs=False),
-                                  "pix2pix": JustPixels}[hps['feat_learning']]
-        self.feature_extractor = self.feature_extractor(policy=self.policy,
-                                                        features_shared_with_policy=False,
-                                                        feat_dim=512,
-                                                        layernormalize=hps['layernorm'])
+        if feat_ext:
+            self.feature_extractor = feat_ext
+        else:
 
-        self.dynamics = Dynamics if hps['feat_learning'] != 'pix2pix' else UNet
-        self.dynamics = self.dynamics(auxiliary_task=self.feature_extractor,
-                                      predict_from_pixels=hps['dyn_from_pixels'],
-                                      feat_dim=512)
+            self.feature_extractor = {"none": FeatureExtractor,
+                                      "idf": InverseDynamics,
+                                      "vaesph": partial(VAE, spherical_obs=True),
+                                      "vaenonsph": partial(VAE, spherical_obs=False),
+                                      "pix2pix": JustPixels}[hps['feat_learning']]
+
+            self.feature_extractor = self.feature_extractor(policy=self.policy,
+                                                            features_shared_with_policy=False,
+                                                            feat_dim=512,
+                                                            layernormalize=hps['layernorm'])
+        if dyn:
+            self.dynamics = dyn
+        else:
+
+            self.dynamics = Dynamics if hps['feat_learning'] != 'pix2pix' else UNet
+            self.dynamics = self.dynamics(auxiliary_task=self.feature_extractor,
+                                          predict_from_pixels=hps['dyn_from_pixels'],
+                                          feat_dim=512)
         self.agent = PpoOptimizer(
             scope='ppo',
             ob_space=self.ob_space,
@@ -91,8 +125,8 @@ class Trainer(object):
             ext_coeff=hps['ext_coeff'],
             int_coeff=hps['int_coeff'],
             dynamics=self.dynamics,
-            exp_name = hps['exp_name'],
-            env_name=hps['env'],
+            exp_name=self.exp_name,
+            env_name=self.env_name,
             video_log_freq=hps['video_log_freq'],
             model_save_freq=hps['model_save_freq'],
             use_apples=hps['use_apples']
@@ -122,7 +156,8 @@ class Trainer(object):
                 break
 
         self.agent.stop_interaction()
-        self.policy.save_model(self.hps['exp_name'])
+        self.policy.save_model(self.exp_name, None)
+
 
 
 def make_env_all_params(rank, add_monitor, args):
@@ -155,6 +190,16 @@ def make_env_all_params(rank, add_monitor, args):
         env = Monitor(env, osp.join(logger.get_dir(), '%.2i' % rank))
     return env
 
+def make_tune_env(rank, add_monitor, args, tune_num):
+
+    env = gym.make(args['tune_envs'][tune_num])
+    env = ProcessFrame84(env, crop=False)
+    env = FrameStack(env, 4)
+
+    if add_monitor:
+        env = Monitor(env, osp.join(logger.get_dir(), '%.2i' % rank))
+    return env
+
 
 def get_experiment_environment(**args):
     from utils import setup_mpi_gpus, setup_tensorflow_session
@@ -178,7 +223,7 @@ def add_environments_params(parser):
     parser.add_argument('--max-episode-steps', help='maximum number of timesteps for episode', default=7200, type=int)
     parser.add_argument('--env_kind', type=str, default="deepmind")
     parser.add_argument('--noop_max', type=int, default=30)
-
+    parser.add_argument('--tune_envs', type=str, action='+', default=None)
 
 def add_optimization_params(parser):
     parser.add_argument('--lambda', type=float, default=0.95)
@@ -190,7 +235,7 @@ def add_optimization_params(parser):
     parser.add_argument('--ent_coeff', type=float, default=0.001)
     parser.add_argument('--nepochs', type=int, default=3)
     parser.add_argument('--num_timesteps', type=int, default=int(1e8))
-
+    parser.add_argument('--num_timesteps_tune', type=int, default=int(1e7))
 
 def add_rollout_params(parser):
     parser.add_argument('--nsteps_per_seg', type=int, default=900)
