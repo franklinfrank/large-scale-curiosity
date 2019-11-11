@@ -14,7 +14,7 @@ class CnnPolicy(object):
         self.nl = nl
         self.ob_mean = ob_mean
         self.ob_std = ob_std
-        with tf.variable_scope(scope):
+        with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
             self.ob_space = ob_space
             self.ac_space = ac_space
             self.ac_pdtype = make_pdtype(ac_space)
@@ -29,10 +29,10 @@ class CnnPolicy(object):
 
             sh = tf.shape(self.ph_ob)
             x = flatten_two_dims(self.ph_ob)
-            self.flat_features = self.get_features(x, reuse=False)
+            self.flat_features = self.get_features(x, reuse=tf.AUTO_REUSE)
             self.features = unflatten_first_dim(self.flat_features, sh)
 
-            with tf.variable_scope(scope, reuse=False):
+            with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
                 x = fc(self.flat_features, units=hidsize, activation=activ)
                 x = fc(x, units=hidsize, activation=activ)
                 pdparam = fc(x, name='pd', units=pdparamsize, activation=None)

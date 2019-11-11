@@ -22,13 +22,14 @@ class PpoOptimizer(object):
                  ent_coef, gamma, lam, nepochs, lr, cliprange,
                  nminibatches,
                  normrew, normadv, use_news, ext_coeff, int_coeff,
-                 nsteps_per_seg, nsegs_per_env, dynamics, exp_name, env_name, video_log_freq, model_save_freq, use_apples):
+                 nsteps_per_seg, nsegs_per_env, dynamics, exp_name, env_name, video_log_freq, model_save_freq, use_apples, agent_num):
         self.dynamics = dynamics
         self.exp_name = exp_name
         self.env_name = env_name
         self.video_log_freq = video_log_freq
         self.model_save_freq = model_save_freq
         self.use_apples = use_apples
+        self.agent_num = agent_num
         with tf.variable_scope(scope):
             self.use_recorder = True
             self.n_updates = 0
@@ -49,19 +50,19 @@ class PpoOptimizer(object):
             self.use_news = use_news
             self.ext_coeff = ext_coeff
             self.int_coeff = int_coeff
-            self.ph_adv = tf.placeholder(tf.float32, [None, None])
-            self.ph_ret = tf.placeholder(tf.float32, [None, None])
-            self.ph_rews = tf.placeholder(tf.float32, [None, None])
-            self.ph_oldnlp = tf.placeholder(tf.float32, [None, None])
-            self.ph_oldvpred = tf.placeholder(tf.float32, [None, None])
-            self.ph_lr = tf.placeholder(tf.float32, [])
-            self.ph_cliprange = tf.placeholder(tf.float32, [])
+            self.ph_adv = tf.placeholder(tf.float32, [None, None], name='adv')
+            self.ph_ret = tf.placeholder(tf.float32, [None, None], name='ret')
+            self.ph_rews = tf.placeholder(tf.float32, [None, None], name='rews')
+            self.ph_oldnlp = tf.placeholder(tf.float32, [None, None], name='oldnlp')
+            self.ph_oldvpred = tf.placeholder(tf.float32, [None, None], name='oldvpred')
+            self.ph_lr = tf.placeholder(tf.float32, [], name='lr')
+            self.ph_cliprange = tf.placeholder(tf.float32, [], name='cliprange')
             neglogpac = self.stochpol.pd.neglogp(self.stochpol.ph_ac)
-            entropy = tf.reduce_mean(self.stochpol.pd.entropy())
+            entropy = tf.reduce_mean(self.stochpol.pd.entropy(), name='agent_entropy')
             vpred = self.stochpol.vpred
-
-            vf_loss = 0.5 * tf.reduce_mean((vpred - self.ph_ret) ** 2)
-            ratio = tf.exp(self.ph_oldnlp - neglogpac)  # p_new / p_old
+            tf.add_
+            vf_loss = 0.5 * tf.reduce_mean((vpred - self.ph_ret) ** 2, name='vf_loss')
+            ratio = tf.exp(self.ph_oldnlp - neglogpaci, name='ratio')  # p_new / p_old
             negadv = - self.ph_adv
             pg_losses1 = negadv * ratio
             pg_losses2 = negadv * tf.clip_by_value(ratio, 1.0 - self.ph_cliprange, 1.0 + self.ph_cliprange)
@@ -80,9 +81,15 @@ class PpoOptimizer(object):
 
         params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
         if MPI.COMM_WORLD.Get_size() > 1:
-            trainer = MpiAdamOptimizer(learning_rate=self.ph_lr, comm=MPI.COMM_WORLD)
+            if self.agent_num is None:
+                trainer = MpiAdamOptimizer(learning_rate=self.ph_lr, comm=MPI.COMM_WORLD)
+            else:
+                trainer = MpiAdamOptimzer(learning_rate=self.ph_lr, name="trainer_" + str(self.agent_num), comm=MPI.COMM_WORLD)    
         else:
-            trainer = tf.train.AdamOptimizer(learning_rate=self.ph_lr)
+            if self.agent_num is None:
+                trainer = tf.train.AdamOptimizer(learning_rate=self.ph_lr)
+            else:
+                trainer = tf.train.AdamOptimizer(learning_rate=self.ph_lr, name="trainer_" + str(self.agent_num))
         gradsandvars = trainer.compute_gradients(self.total_loss, params)
         self._train = trainer.apply_gradients(gradsandvars)
 

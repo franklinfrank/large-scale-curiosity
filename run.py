@@ -39,20 +39,25 @@ def start_experiment(**args):
         policy = trainer.policy
         feat_ext = trainer.feature_extractor
         dyn = trainer.dynamics
-        if args['tune_envs']:
-            for i in range(len(args['tune_envs'])):
+    if args['tune_envs']:
+        for i in range(len(args['tune_envs'])):
+            
+            sess = tf.Session() 
+            tf.reset_default_graph
+            with log, sess:
                 tune_make_env = partial(make_tune_env, add_monitor=True, args=args, tune_num=i)
                 new_exp = args['exp_name'] + "_tune_on_{}".format(args['tune_envs'][i])
-                new_trainer = Trainer(make_env=tune_make_env, num_timsteps=args['num_timesteps_tune'],
+              #  policy.restore_model(args['exp_name'] + "_final")
+                new_trainer = Trainer(make_env=tune_make_env, num_timesteps=args['num_timesteps_tune'],
                                       hps=args, envs_per_process=args['envs_per_process'], exp_name=new_exp,
                                       env_name=args['tune_envs'][i], policy=policy,
-                                      feat_ext=feat_ext, dyn=dyn)
+                                      feat_ext=feat_ext, dyn=dyn, agent_num=i)
                 new_trainer.policy.restore_model(args['exp_name'] + "_final")
                 new_trainer.train()
 
 
 class Trainer(object):
-    def __init__(self, make_env, hps, num_timesteps, envs_per_process, exp_name=None, env_name=None, policy=None, feat_ext=None, dyn=None):
+    def __init__(self, make_env, hps, num_timesteps, envs_per_process, exp_name=None, env_name=None, policy=None, feat_ext=None, dyn=None, agent_num=None):
         self.make_env = make_env
         self.hps = hps
         self.envs_per_process = envs_per_process
@@ -81,7 +86,7 @@ class Trainer(object):
         else:
             self.policy = policy
         if exp_name:
-            self.policy.restore_model(self.exp_name + "_final")
+            self.policy.restore_model(hps['exp_name'] +  "_final")
 
         if feat_ext:
             self.feature_extractor = feat_ext
@@ -129,7 +134,8 @@ class Trainer(object):
             env_name=self.env_name,
             video_log_freq=hps['video_log_freq'],
             model_save_freq=hps['model_save_freq'],
-            use_apples=hps['use_apples']
+            use_apples=hps['use_apples'],
+            agent_num=agent_num
         )
 
         self.agent.to_report['aux'] = tf.reduce_mean(self.feature_extractor.loss)
@@ -223,7 +229,7 @@ def add_environments_params(parser):
     parser.add_argument('--max-episode-steps', help='maximum number of timesteps for episode', default=7200, type=int)
     parser.add_argument('--env_kind', type=str, default="deepmind")
     parser.add_argument('--noop_max', type=int, default=30)
-    parser.add_argument('--tune_envs', type=str, action='+', default=None)
+    parser.add_argument('--tune_envs', type=str, nargs='+', default=None)
 
 def add_optimization_params(parser):
     parser.add_argument('--lambda', type=float, default=0.95)
