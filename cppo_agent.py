@@ -60,21 +60,36 @@ class PpoOptimizer(object):
             neglogpac = self.stochpol.pd.neglogp(self.stochpol.ph_ac)
             entropy = tf.reduce_mean(self.stochpol.pd.entropy(), name='agent_entropy')
             vpred = self.stochpol.vpred
-            tf.add_
             vf_loss = 0.5 * tf.reduce_mean((vpred - self.ph_ret) ** 2, name='vf_loss')
-            ratio = tf.exp(self.ph_oldnlp - neglogpaci, name='ratio')  # p_new / p_old
+            ratio = tf.exp(self.ph_oldnlp - neglogpac, name='ratio')  # p_new / p_old
             negadv = - self.ph_adv
             pg_losses1 = negadv * ratio
-            pg_losses2 = negadv * tf.clip_by_value(ratio, 1.0 - self.ph_cliprange, 1.0 + self.ph_cliprange)
-            pg_loss_surr = tf.maximum(pg_losses1, pg_losses2)
-            pg_loss = tf.reduce_mean(pg_loss_surr)
+            pg_losses2 = negadv * tf.clip_by_value(ratio, 1.0 - self.ph_cliprange, 1.0 + self.ph_cliprange, name='pglosses2')
+            pg_loss_surr = tf.maximum(pg_losses1, pg_losses2, name='loss_surr')
+            pg_loss = tf.reduce_mean(pg_loss_surr, name='pg_loss')
             ent_loss = (- ent_coef) * entropy
-            approxkl = .5 * tf.reduce_mean(tf.square(neglogpac - self.ph_oldnlp))
-            clipfrac = tf.reduce_mean(tf.to_float(tf.abs(pg_losses2 - pg_loss_surr) > 1e-6))
+            approxkl = .5 * tf.reduce_mean(tf.square(neglogpac - self.ph_oldnlp), name='approxkl')
+            clipfrac = tf.reduce_mean(tf.to_float(tf.abs(pg_losses2 - pg_loss_surr) > 1e-6), name='clipfrac')
 
             self.total_loss = pg_loss + ent_loss + vf_loss
             self.to_report = {'tot': self.total_loss, 'pg': pg_loss, 'vf': vf_loss, 'ent': entropy,
                               'approxkl': approxkl, 'clipfrac': clipfrac}
+            if self.agent_num is None:
+                tf.add_to_collection('adv', self.ph_adv)
+                tf.add_to_collection('ret', self.ph_ret)
+                tf.add_to_collection('rews', self.ph_rews)
+                tf.add_to_collection('oldnlp', self.ph_oldnlp)
+                tf.add_to_collection('oldvpred', self.ph_oldvpred)
+                tf.add_to_collection('lr', self.ph_lr)
+                tf.add_to_collection('cliprange', self.ph_cliprange)
+                tf.add_to_collection('agent_entropy', entropy)
+                tf.add_to_collection('vf_loss', vf_loss)
+                tf.add_to_collection('ratio', ratio)
+                tf.add_to_collection('pg_losses2', pg_losses2)
+                tf.add_to_collection('loss_sur', pg_loss_surr)
+                tf.add_to_collection('pg_loss', pg_loss)
+                tf.add_to_collection('approxkl', approxkl)
+                tf.add_to_collection('clipfrac', clipfrac)
 
     def start_interaction(self, env_fns, dynamics, nlump=2):
         self.loss_names, self._losses = zip(*list(self.to_report.items()))
@@ -234,6 +249,39 @@ class PpoOptimizer(object):
 
     def set_var_values(self, vv):
         self.stochpol.set_var_values(vv)
+
+    def restore_model(self, model_name):
+        saver = tf.train.import_meta_graph("models/" + model_name + ".ckpt" + ".meta")
+        saver.restore(getsess(), "models/" + model_name + ".ckpt")
+        self.stochpol.vpred = tf.get_collection("vpred")[0]
+        self.stochpol.a_samp = tf.get_collection("a_samp")[0]
+        self.stochpol.entropy = tf.get_collection("entropy")[0]
+        self.stochpol.nlp_samp = tf.get_collection("nlp_samp")[0]
+        self.stochpol.ph_ob = tf.get_collection("ph_ob")[0]
+        self.ph_adv = tf.get_collection("adv")[0]
+        self.ph_ret = tf.get_collection("ret")[0]
+        self.ph_rews = tf.get_collection("rews")[0]
+        self.ph_oldnlp = tf.get_collection("oldnlp")[0]
+        self.ph_oldvpred = tf.get_collection("oldvpred")[0]
+        self.ph_lr = tf.get_collection("lr")[0]
+        self.ph_cliprange = tf.get_collection("cliprange")[0]
+        neglogpac = self.stochpol.pd.neglogp(self.stochpol.ph_ac)
+        entropy = tf.get_collection("agent_entropy")[0]
+        vpred = self.stochpol.vpred
+        vf_loss = tf.get_collection("vf_loss")[0]
+        ratio = tf.get_collection("ratio")[0]
+        negadv = - self.ph_adv
+        pg_losses1 = negadv * ratio
+        pg_losses2 = tf.get_collection("pg_losses2")[0]
+        pg_loss_surr = tf.get_collection("loss_surr")[0]
+        pg_loss = tf.get_collection("pg_loss")[0]
+        ent_loss = (- ent_coef) * entropy
+        approxkl = tf.get_collection("approxkl")[0]
+        clipfrac = tf.get_collection("clipfrac")[0]
+
+        self.total_loss = pg_loss + ent_loss + vf_loss
+        self.to_report = {'tot': self.total_loss, 'pg': pg_loss, 'vf': vf_loss, 'ent': entropy,
+                          'approxkl': approxkl, 'clipfrac': clipfrac}
 
 
 class RewardForwardFilter(object):

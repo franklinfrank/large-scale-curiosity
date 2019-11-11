@@ -47,12 +47,11 @@ def start_experiment(**args):
             with log, sess:
                 tune_make_env = partial(make_tune_env, add_monitor=True, args=args, tune_num=i)
                 new_exp = args['exp_name'] + "_tune_on_{}".format(args['tune_envs'][i])
-              #  policy.restore_model(args['exp_name'] + "_final")
                 new_trainer = Trainer(make_env=tune_make_env, num_timesteps=args['num_timesteps_tune'],
                                       hps=args, envs_per_process=args['envs_per_process'], exp_name=new_exp,
                                       env_name=args['tune_envs'][i], policy=policy,
                                       feat_ext=feat_ext, dyn=dyn, agent_num=i)
-                new_trainer.policy.restore_model(args['exp_name'] + "_final")
+                new_trainer.agent.restore_model(args['exp_name'] + "_final")
                 new_trainer.train()
 
 
