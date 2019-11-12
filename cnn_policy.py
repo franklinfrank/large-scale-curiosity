@@ -95,3 +95,11 @@ class CnnPolicy(object):
         self.nlp_samp = tf.get_collection("nlp_samp")[0]
         self.ph_ob = tf.get_collection("ph_ob")[0]
 
+    def restore(self):
+        self.vpred = tf.get_collection("vpred")[0]
+        self.a_samp = tf.get_collection("a_samp")[0]
+        self.entropy = tf.get_collection("entropy")[0]
+        self.nlp_samp = tf.get_collection("nlp_samp")[0]
+        self.ph_ob = tf.get_collection("ph_ob")[0]
+
+

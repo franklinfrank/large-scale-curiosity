@@ -92,7 +92,7 @@ class PpoOptimizer(object):
                 tf.add_to_collection('approxkl', approxkl)
                 tf.add_to_collection('clipfrac', clipfrac)
             else:
-                self.restore_model(restore_name)
+                self.restore()
 
     def start_interaction(self, env_fns, dynamics, nlump=2):
         self.loss_names, self._losses = zip(*list(self.to_report.items()))
@@ -259,14 +259,12 @@ class PpoOptimizer(object):
     def set_var_values(self, vv):
         self.stochpol.set_var_values(vv)
 
-    def restore_model(self, model_name):
-        saver = tf.train.import_meta_graph("models/" + model_name + ".ckpt" + ".meta")
-        saver.restore(getsess(), "models/" + model_name + ".ckpt")
-        self.stochpol.vpred = tf.get_collection("vpred")[0]
-        self.stochpol.a_samp = tf.get_collection("a_samp")[0]
-        self.stochpol.entropy = tf.get_collection("entropy")[0]
-        self.stochpol.nlp_samp = tf.get_collection("nlp_samp")[0]
-        self.stochpol.ph_ob = tf.get_collection("ph_ob")[0]
+    def restore(self):
+        # self.stochpol.vpred = tf.get_collection("vpred")[0]
+        # self.stochpol.a_samp = tf.get_collection("a_samp")[0]
+        # self.stochpol.entropy = tf.get_collection("entropy")[0]
+        # self.stochpol.nlp_samp = tf.get_collection("nlp_samp")[0]
+        # self.stochpol.ph_ob = tf.get_collection("ph_ob")[0]
         self.ph_adv = tf.get_collection("adv")[0]
         self.ph_ret = tf.get_collection("ret")[0]
         self.ph_rews = tf.get_collection("rews")[0]

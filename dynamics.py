@@ -19,13 +19,16 @@ class Dynamics(object):
         self.ob_std = self.auxiliary_task.ob_std
         if predict_from_pixels:
             self.features = self.get_features(self.obs, reuse=False)
+            tf.add_to_collection("dynamic_features", self.features)
         else:
             self.features = tf.stop_gradient(self.auxiliary_task.features)
+            tf.add_to_collection("dynamic_features", self.features)
 
         self.out_features = self.auxiliary_task.next_features
 
         with tf.variable_scope(self.scope + "_loss"):
             self.loss = self.get_loss()
+            tf.add_to_collection("dynamics_loss", self.loss)
 
     def get_features(self, x, reuse):
         nl = tf.nn.leaky_relu
@@ -73,6 +76,18 @@ class Dynamics(object):
         return np.concatenate([getsess().run(self.loss,
                                              {self.obs: ob[sli(i)], self.last_ob: last_ob[sli(i)],
                                               self.ac: acs[sli(i)]}) for i in range(n_chunks)], 0)
+    def restore(self):
+        self.obs = self.auxiliary_task.obs
+        self.last_ob = self.auxiliary_task.last_ob
+        self.ac = self.auxiliary_task.ac
+        self.ac_space = self.auxiliary_task.ac_space
+        self.ob_mean = self.auxiliary_task.ob_mean
+        self.ob_std = self.auxiliary_task.ob_std
+        self.features = tf.get_collection("dynamic_features")[0]
+
+        self.out_features = self.auxiliary_task.next_features
+        self.loss = tf.get_collection("dynamics_loss")[0]
+
 
 
 class UNet(Dynamics):

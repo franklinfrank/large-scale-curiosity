@@ -17,6 +17,7 @@ class FeatureExtractor(object):
         self.obs = self.policy.ph_ob
         self.ob_mean = self.policy.ob_mean
         self.ob_std = self.policy.ob_std
+        self.scope = scope
 
         with tf.variable_scope(scope):
             if restore_name is None:
@@ -45,7 +46,7 @@ class FeatureExtractor(object):
             else:
                 self.last_ob = tf.get_collection("last_ob")[0]
                 self.next_ob = tf.get_collection("next_ob")[0]
-                self.ac =  tf.get_collection("ph_ac")[0]
+                self.ac = tf.get_collection("ph_ac")[0]
                 self.scope = scope
                 self.features = tf.get_collection("features")[0]
                 self.last_features = tf.get_collection("last_features")[0]
@@ -67,6 +68,16 @@ class FeatureExtractor(object):
 
     def get_loss(self):
         return tf.zeros((), dtype=tf.float32)
+
+    def restore(self):
+        self.last_ob = tf.get_collection("last_ob")[0]
+        self.next_ob = tf.get_collection("next_ob")[0]
+        self.ac = tf.get_collection("ph_ac")[0]
+        self.features = tf.get_collection("features")[0]
+        self.last_features = tf.get_collection("last_features")[0]
+        self.next_features = tf.get_collection("next_features")[0]
+        self.loss = tf.get_collection("feature_loss")[0]
+
 
 
 class InverseDynamics(FeatureExtractor):
