@@ -41,22 +41,25 @@ def start_experiment(**args):
         dyn = trainer.dynamics
     if args['tune_envs']:
         for i in range(len(args['tune_envs'])):
+            new_graph = tf.Graph()    
+            sess = tf.Session(graph=new_graph) 
             
-            sess = tf.Session() 
-            tf.reset_default_graph
             with log, sess:
-                tune_make_env = partial(make_tune_env, add_monitor=True, args=args, tune_num=i)
-                new_exp = args['exp_name'] + "_tune_on_{}".format(args['tune_envs'][i])
+                saver = tf.train.import_meta_graph("models/" + args['exp_name'] + "_final" + ".ckpt" + ".meta") 
+                saver.restore(sess, "models/" + args['exp_name'] + "_final" + ".ckpt")
+                env_name = args['tune_envs'][i]
+                tune_make_env = partial(make_tune_env, add_monitor=True, env_name=env_name)
+                new_exp = args['exp_name'] + "_tune_on_{}".format(env_name)
                 new_trainer = Trainer(make_env=tune_make_env, num_timesteps=args['num_timesteps_tune'],
                                       hps=args, envs_per_process=args['envs_per_process'], exp_name=new_exp,
-                                      env_name=args['tune_envs'][i], policy=policy,
-                                      feat_ext=feat_ext, dyn=dyn, agent_num=i)
-                new_trainer.agent.restore_model(args['exp_name'] + "_final")
+                                      env_name=env_name, policy=policy,
+                                      feat_ext=feat_ext, dyn=dyn, agent_num=i, restore_name=args['exp_name'] + "_final")
+                #new_trainer.agent.restore_model(args['exp_name'] + "_final")
                 new_trainer.train()
 
 
 class Trainer(object):
-    def __init__(self, make_env, hps, num_timesteps, envs_per_process, exp_name=None, env_name=None, policy=None, feat_ext=None, dyn=None, agent_num=None):
+    def __init__(self, make_env, hps, num_timesteps, envs_per_process, exp_name=None, env_name=None, policy=None, feat_ext=None, dyn=None, agent_num=None, restore_name=None):
         self.make_env = make_env
         self.hps = hps
         self.envs_per_process = envs_per_process
@@ -70,7 +73,6 @@ class Trainer(object):
             self.env_name = env_name
         else:
             self.env_name = hps['env']
-
         if policy is None:
             self.policy = CnnPolicy(
                 scope='pol',
@@ -84,11 +86,11 @@ class Trainer(object):
                 nl=tf.nn.leaky_relu)
         else:
             self.policy = policy
-        if exp_name:
-            self.policy.restore_model(hps['exp_name'] +  "_final")
+            self.policy.restore()
 
         if feat_ext:
             self.feature_extractor = feat_ext
+            self.feature_extractor.restore()
         else:
 
             self.feature_extractor = {"none": FeatureExtractor,
@@ -103,6 +105,7 @@ class Trainer(object):
                                                             layernormalize=hps['layernorm'])
         if dyn:
             self.dynamics = dyn
+            self.dynamics.restore()
         else:
 
             self.dynamics = Dynamics if hps['feat_learning'] != 'pix2pix' else UNet
@@ -134,7 +137,8 @@ class Trainer(object):
             video_log_freq=hps['video_log_freq'],
             model_save_freq=hps['model_save_freq'],
             use_apples=hps['use_apples'],
-            agent_num=agent_num
+            agent_num=agent_num,
+            restore_name=restore_name
         )
 
         self.agent.to_report['aux'] = tf.reduce_mean(self.feature_extractor.loss)
@@ -195,9 +199,9 @@ def make_env_all_params(rank, add_monitor, args):
         env = Monitor(env, osp.join(logger.get_dir(), '%.2i' % rank))
     return env
 
-def make_tune_env(rank, add_monitor, args, tune_num):
+def make_tune_env(rank, add_monitor, env_name):
 
-    env = gym.make(args['tune_envs'][tune_num])
+    env = gym.make(env_name)
     env = ProcessFrame84(env, crop=False)
     env = FrameStack(env, 4)
 

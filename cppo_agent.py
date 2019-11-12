@@ -22,7 +22,7 @@ class PpoOptimizer(object):
                  ent_coef, gamma, lam, nepochs, lr, cliprange,
                  nminibatches,
                  normrew, normadv, use_news, ext_coeff, int_coeff,
-                 nsteps_per_seg, nsegs_per_env, dynamics, exp_name, env_name, video_log_freq, model_save_freq, use_apples, agent_num):
+                 nsteps_per_seg, nsegs_per_env, dynamics, exp_name, env_name, video_log_freq, model_save_freq, use_apples, agent_num=None, restore_name=None):
         self.dynamics = dynamics
         self.exp_name = exp_name
         self.env_name = env_name
@@ -50,31 +50,32 @@ class PpoOptimizer(object):
             self.use_news = use_news
             self.ext_coeff = ext_coeff
             self.int_coeff = int_coeff
-            self.ph_adv = tf.placeholder(tf.float32, [None, None], name='adv')
-            self.ph_ret = tf.placeholder(tf.float32, [None, None], name='ret')
-            self.ph_rews = tf.placeholder(tf.float32, [None, None], name='rews')
-            self.ph_oldnlp = tf.placeholder(tf.float32, [None, None], name='oldnlp')
-            self.ph_oldvpred = tf.placeholder(tf.float32, [None, None], name='oldvpred')
-            self.ph_lr = tf.placeholder(tf.float32, [], name='lr')
-            self.ph_cliprange = tf.placeholder(tf.float32, [], name='cliprange')
-            neglogpac = self.stochpol.pd.neglogp(self.stochpol.ph_ac)
-            entropy = tf.reduce_mean(self.stochpol.pd.entropy(), name='agent_entropy')
-            vpred = self.stochpol.vpred
-            vf_loss = 0.5 * tf.reduce_mean((vpred - self.ph_ret) ** 2, name='vf_loss')
-            ratio = tf.exp(self.ph_oldnlp - neglogpac, name='ratio')  # p_new / p_old
-            negadv = - self.ph_adv
-            pg_losses1 = negadv * ratio
-            pg_losses2 = negadv * tf.clip_by_value(ratio, 1.0 - self.ph_cliprange, 1.0 + self.ph_cliprange, name='pglosses2')
-            pg_loss_surr = tf.maximum(pg_losses1, pg_losses2, name='loss_surr')
-            pg_loss = tf.reduce_mean(pg_loss_surr, name='pg_loss')
-            ent_loss = (- ent_coef) * entropy
-            approxkl = .5 * tf.reduce_mean(tf.square(neglogpac - self.ph_oldnlp), name='approxkl')
-            clipfrac = tf.reduce_mean(tf.to_float(tf.abs(pg_losses2 - pg_loss_surr) > 1e-6), name='clipfrac')
-
-            self.total_loss = pg_loss + ent_loss + vf_loss
-            self.to_report = {'tot': self.total_loss, 'pg': pg_loss, 'vf': vf_loss, 'ent': entropy,
-                              'approxkl': approxkl, 'clipfrac': clipfrac}
+            self.ent_coeff = ent_coef
             if self.agent_num is None:
+                self.ph_adv = tf.placeholder(tf.float32, [None, None], name='adv')
+                self.ph_ret = tf.placeholder(tf.float32, [None, None], name='ret')
+                self.ph_rews = tf.placeholder(tf.float32, [None, None], name='rews')
+                self.ph_oldnlp = tf.placeholder(tf.float32, [None, None], name='oldnlp')
+                self.ph_oldvpred = tf.placeholder(tf.float32, [None, None], name='oldvpred')
+                self.ph_lr = tf.placeholder(tf.float32, [], name='lr')
+                self.ph_cliprange = tf.placeholder(tf.float32, [], name='cliprange')
+                neglogpac = self.stochpol.pd.neglogp(self.stochpol.ph_ac)
+                entropy = tf.reduce_mean(self.stochpol.pd.entropy(), name='agent_entropy')
+                vpred = self.stochpol.vpred
+                vf_loss = 0.5 * tf.reduce_mean((vpred - self.ph_ret) ** 2, name='vf_loss')
+                ratio = tf.exp(self.ph_oldnlp - neglogpac, name='ratio')  # p_new / p_old
+                negadv = - self.ph_adv
+                pg_losses1 = negadv * ratio
+                pg_losses2 = negadv * tf.clip_by_value(ratio, 1.0 - self.ph_cliprange, 1.0 + self.ph_cliprange, name='pglosses2')
+                pg_loss_surr = tf.maximum(pg_losses1, pg_losses2, name='loss_surr')
+                pg_loss = tf.reduce_mean(pg_loss_surr, name='pg_loss')
+                ent_loss = (- ent_coef) * entropy
+                approxkl = .5 * tf.reduce_mean(tf.square(neglogpac - self.ph_oldnlp), name='approxkl')
+                clipfrac = tf.reduce_mean(tf.to_float(tf.abs(pg_losses2 - pg_loss_surr) > 1e-6), name='clipfrac')
+
+                self.total_loss = pg_loss + ent_loss + vf_loss
+                self.to_report = {'tot': self.total_loss, 'pg': pg_loss, 'vf': vf_loss, 'ent': entropy,
+                              'approxkl': approxkl, 'clipfrac': clipfrac}
                 tf.add_to_collection('adv', self.ph_adv)
                 tf.add_to_collection('ret', self.ph_ret)
                 tf.add_to_collection('rews', self.ph_rews)
@@ -86,10 +87,12 @@ class PpoOptimizer(object):
                 tf.add_to_collection('vf_loss', vf_loss)
                 tf.add_to_collection('ratio', ratio)
                 tf.add_to_collection('pg_losses2', pg_losses2)
-                tf.add_to_collection('loss_sur', pg_loss_surr)
+                tf.add_to_collection('loss_surr', pg_loss_surr)
                 tf.add_to_collection('pg_loss', pg_loss)
                 tf.add_to_collection('approxkl', approxkl)
                 tf.add_to_collection('clipfrac', clipfrac)
+            else:
+                self.restore_model(restore_name)
 
     def start_interaction(self, env_fns, dynamics, nlump=2):
         self.loss_names, self._losses = zip(*list(self.to_report.items()))
@@ -98,15 +101,21 @@ class PpoOptimizer(object):
         if MPI.COMM_WORLD.Get_size() > 1:
             if self.agent_num is None:
                 trainer = MpiAdamOptimizer(learning_rate=self.ph_lr, comm=MPI.COMM_WORLD)
+                tf.add_to_collection("trainer", trainer)
             else:
-                trainer = MpiAdamOptimzer(learning_rate=self.ph_lr, name="trainer_" + str(self.agent_num), comm=MPI.COMM_WORLD)    
+                trainer = tf.get_collection("trainer")[0]   
         else:
             if self.agent_num is None:
                 trainer = tf.train.AdamOptimizer(learning_rate=self.ph_lr)
+                tf.add_to_collection("trainer", trainer)
             else:
-                trainer = tf.train.AdamOptimizer(learning_rate=self.ph_lr, name="trainer_" + str(self.agent_num))
+                trainer = tf.get_collection("trainer")[0]
         gradsandvars = trainer.compute_gradients(self.total_loss, params)
-        self._train = trainer.apply_gradients(gradsandvars)
+        if self.agent_num is None:
+            self._train = trainer.apply_gradients(gradsandvars)
+            tf.add_to_collection("train_op", self._train)
+        else:
+            self._train = tf.get_collection("train_op")[0]
 
         if MPI.COMM_WORLD.Get_rank() == 0:
             getsess().run(tf.variables_initializer(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)))
@@ -275,7 +284,7 @@ class PpoOptimizer(object):
         pg_losses2 = tf.get_collection("pg_losses2")[0]
         pg_loss_surr = tf.get_collection("loss_surr")[0]
         pg_loss = tf.get_collection("pg_loss")[0]
-        ent_loss = (- ent_coef) * entropy
+        ent_loss = (- self.ent_coeff) * entropy
         approxkl = tf.get_collection("approxkl")[0]
         clipfrac = tf.get_collection("clipfrac")[0]
 
