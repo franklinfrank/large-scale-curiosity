@@ -37,7 +37,7 @@ class FeatureExtractor(object):
                 self.scope = scope
 
                 self.loss = self.get_loss()
-                tf.add_to_colleciton("last_ob", self.last_ob)
+                tf.add_to_collection("last_ob", self.last_ob)
                 tf.add_to_collection("next_ob", self.next_ob)
                 tf.add_to_collection("features", self.features)
                 tf.add_to_collection("last_features", self.last_features)
@@ -77,6 +77,7 @@ class FeatureExtractor(object):
         self.last_features = tf.get_collection("last_features")[0]
         self.next_features = tf.get_collection("next_features")[0]
         self.loss = tf.get_collection("feature_loss")[0]
+        self.obs = tf.get_collection("ph_ob")[0]
 
 
 

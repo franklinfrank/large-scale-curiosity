@@ -43,8 +43,9 @@ class CnnPolicy(object):
             self.a_samp = pd.sample()
             self.entropy = pd.entropy()
             self.nlp_samp = pd.neglogp(self.a_samp)
+            tf.add_to_collection('ph_ac', self.ph_ac)
             tf.add_to_collection('vpred', self.vpred)
-            tf.add_to_collection('pd', self.pd)
+            tf.add_to_collection('pdparam', pdparam)
             tf.add_to_collection('a_samp', self.a_samp)
             tf.add_to_collection('entropy', self.entropy)
             tf.add_to_collection('nlp_samp', self.nlp_samp)
@@ -101,5 +102,7 @@ class CnnPolicy(object):
         self.entropy = tf.get_collection("entropy")[0]
         self.nlp_samp = tf.get_collection("nlp_samp")[0]
         self.ph_ob = tf.get_collection("ph_ob")[0]
-
-
+        self.ph_ac = tf.get_collection("ph_ac")[0]
+        pdparam = tf.get_collection("pdparam")[0]
+        self.pd = pd = self.ac_pdtype.pdfromflat(pdparam)
+        

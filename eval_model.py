@@ -6,6 +6,7 @@ from baselines.common.atari_wrappers import FrameStack
 import numpy as np
 import cv2
 import os
+import sys
 
 def format_obs(obs_name, obs):
     nums = ",".join(map(str, obs))
@@ -35,8 +36,17 @@ def start_eval(**args):
             rew_type = "sparse"
         elif env_type == "wno":
             rew_type = "no"
-        else:
+        elif env_type == "ewa":
             rew_type = "dense"
+        elif env_type == "ew4":
+            rew_type = "sparse4"
+        elif env_type == "4no":
+            rew_type = "no4"
+        elif env_type == "w4a":
+            rew_type = "dense4"
+        else:
+            print("Can't tell reward type from env {}".format(env_name))
+            sys.exit()
         for i in range(num_episodes):
             trajectory_file = exp_name + "_eval_on_" + rew_type  + "_itr" + str(i) + "_trajectory.txt"
             if not os.path.exists("trajectories"):

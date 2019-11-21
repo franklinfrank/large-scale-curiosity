@@ -101,17 +101,13 @@ class PpoOptimizer(object):
         if MPI.COMM_WORLD.Get_size() > 1:
             if self.agent_num is None:
                 trainer = MpiAdamOptimizer(learning_rate=self.ph_lr, comm=MPI.COMM_WORLD)
-                tf.add_to_collection("trainer", trainer)
-            else:
-                trainer = tf.get_collection("trainer")[0]   
+                
         else:
             if self.agent_num is None:
                 trainer = tf.train.AdamOptimizer(learning_rate=self.ph_lr)
-                tf.add_to_collection("trainer", trainer)
-            else:
-                trainer = tf.get_collection("trainer")[0]
-        gradsandvars = trainer.compute_gradients(self.total_loss, params)
         if self.agent_num is None:
+            gradsandvars = trainer.compute_gradients(self.total_loss, params)
+        
             self._train = trainer.apply_gradients(gradsandvars)
             tf.add_to_collection("train_op", self._train)
         else:

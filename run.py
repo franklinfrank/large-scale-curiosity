@@ -229,7 +229,7 @@ def get_experiment_environment(**args):
 def add_environments_params(parser):
     parser.add_argument('--env', help='environment ID', default='DeepmindLabNavMazeStatic01-v0',
                         type=str)
-    parser.add_argument('--max-episode-steps', help='maximum number of timesteps for episode', default=7200, type=int)
+    parser.add_argument('--max-episode-steps', help='maximum number of timesteps for episode', default=4500, type=int)
     parser.add_argument('--env_kind', type=str, default="deepmind")
     parser.add_argument('--noop_max', type=int, default=30)
     parser.add_argument('--tune_envs', type=str, nargs='+', default=None)
