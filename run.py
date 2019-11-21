@@ -26,7 +26,10 @@ from wrappers import MontezumaInfoWrapper, make_mario_env, make_robo_pong, make_
 
 
 def start_experiment(**args):
-    make_env = partial(make_env_all_params, add_monitor=True, args=args)
+    if args['multi_train_envs']:
+        make_env = partial(make_specific_env, add_monitor=True, args=args)
+    else:
+        make_env = partial(make_env_all_params, add_monitor=True, args=args)
 
     trainer = Trainer(make_env=make_env,
                       num_timesteps=args['num_timesteps'], hps=args,
@@ -155,6 +158,16 @@ def make_env_all_params(rank, add_monitor, args):
         env = Monitor(env, osp.join(logger.get_dir(), '%.2i' % rank))
     return env
 
+def make_specific_env(rank, add_monitor, args):
+    multi_train_envs = args['multi_train_envs']
+    env_index = rank  // (args['envs_per_process'] // len(multi_train_envs))
+    env = gym.make(args['multi_train_envs'][env_index])
+    env = ProcessFrame84(env, crop=False)
+    env = FrameStack(env, 4)
+    print("Made env {}".format(args['multi_train_envs'][env_index]))
+    if add_monitor:
+        env = Monitor(env, osp.join(logger.get_dir(), '%.2i' % rank))
+    return env
 
 def get_experiment_environment(**args):
     from utils import setup_mpi_gpus, setup_tensorflow_session
@@ -175,10 +188,10 @@ def get_experiment_environment(**args):
 def add_environments_params(parser):
     parser.add_argument('--env', help='environment ID', default='DeepmindLabNavMazeStatic01-v0',
                         type=str)
-    parser.add_argument('--max-episode-steps', help='maximum number of timesteps for episode', default=7200, type=int)
+    parser.add_argument('--max-episode-steps', help='maximum number of timesteps for episode', default=4500, type=int)
     parser.add_argument('--env_kind', type=str, default="deepmind")
     parser.add_argument('--noop_max', type=int, default=30)
-
+    parser.add_argument('--multi_train_envs', type=str, nargs='+', default=None)
 
 def add_optimization_params(parser):
     parser.add_argument('--lambda', type=float, default=0.95)
