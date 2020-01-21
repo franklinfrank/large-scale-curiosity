@@ -6,12 +6,13 @@ from baselines.common.atari_wrappers import FrameStack
 import numpy as np
 import cv2
 import os
+import sys
 
 def format_obs(obs_name, obs):
-	nums = ",".join(map(str, obs))
-	dict_format = "{" + nums + "}"
-	final_str = "observation \"{}\" - {}\n".format(obs_name, dict_format)
-	return final_str
+    nums = ",".join(map(str, obs))
+    dict_format = "{" + nums + "}"
+    final_str = "observation \"{}\" - {}\n".format(obs_name, dict_format)
+    return final_str
 
 def start_eval(**args):
 	print("Starting model evaluation")
@@ -100,5 +101,3 @@ if __name__ == "__main__":
 	parser.add_argument('--eval_steps', type=int, default=200)
 	args = parser.parse_args()
 	start_eval(**args.__dict__)
-
-

@@ -14,7 +14,7 @@ class CnnPolicy(object):
         self.nl = nl
         self.ob_mean = ob_mean
         self.ob_std = ob_std
-        with tf.variable_scope(scope):
+        with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
             self.ob_space = ob_space
             self.ac_space = ac_space
             self.ac_pdtype = make_pdtype(ac_space)
@@ -29,10 +29,10 @@ class CnnPolicy(object):
 
             sh = tf.shape(self.ph_ob)
             x = flatten_two_dims(self.ph_ob)
-            self.flat_features = self.get_features(x, reuse=False)
+            self.flat_features = self.get_features(x, reuse=tf.AUTO_REUSE)
             self.features = unflatten_first_dim(self.flat_features, sh)
 
-            with tf.variable_scope(scope, reuse=False):
+            with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
                 x = fc(self.flat_features, units=hidsize, activation=activ)
                 x = fc(x, units=hidsize, activation=activ)
                 pdparam = fc(x, name='pd', units=pdparamsize, activation=None)
@@ -43,8 +43,9 @@ class CnnPolicy(object):
             self.a_samp = pd.sample()
             self.entropy = pd.entropy()
             self.nlp_samp = pd.neglogp(self.a_samp)
+            tf.add_to_collection('ph_ac', self.ph_ac)
             tf.add_to_collection('vpred', self.vpred)
-            tf.add_to_collection('pd', self.pd)
+            tf.add_to_collection('pdparam', pdparam)
             tf.add_to_collection('a_samp', self.a_samp)
             tf.add_to_collection('entropy', self.entropy)
             tf.add_to_collection('nlp_samp', self.nlp_samp)
@@ -79,13 +80,29 @@ class CnnPolicy(object):
         self.saver = tf.train.Saver()
         if not os.path.exists("models"):
             os.makedirs("models")
-        path = "models/"+model_name+ "_ep{}".format(ep_num) + ".ckpt"
+        if ep_num:
+            path = "models/"+model_name+ "_ep{}".format(ep_num) + ".ckpt"
+        else:
+            path = "models/"+model_name+ "_{}".format("final") + ".ckpt"
         self.saver.save(getsess(), path)
         print("Model saved to path",path)
 
     def restore_model(self, model_name):
-        path = "models/" + model_name + ".ckpt"
+        saver = tf.train.import_meta_graph("models/" + model_name + ".ckpt" + ".meta")
+        saver.restore(getsess(), "models/" + model_name + ".ckpt")
+        self.vpred = tf.get_collection("vpred")[0]
+        self.a_samp = tf.get_collection("a_samp")[0]
+        self.entropy = tf.get_collection("entropy")[0]
+        self.nlp_samp = tf.get_collection("nlp_samp")[0]
+        self.ph_ob = tf.get_collection("ph_ob")[0]
+
+    def restore(self):
+        self.vpred = tf.get_collection("vpred")[0]
+        self.a_samp = tf.get_collection("a_samp")[0]
+        self.entropy = tf.get_collection("entropy")[0]
+        self.nlp_samp = tf.get_collection("nlp_samp")[0]
+        self.ph_ob = tf.get_collection("ph_ob")[0]
+        self.ph_ac = tf.get_collection("ph_ac")[0]
+        pdparam = tf.get_collection("pdparam")[0]
+        self.pd = pd = self.ac_pdtype.pdfromflat(pdparam)
         
-       # self.saver = tf.train.import_meta_graph(path + ".meta")
-        self.saver = tf.train.Saver()
-        self.saver.restore(getsess(), path)

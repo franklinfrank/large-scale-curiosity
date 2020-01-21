@@ -136,6 +136,7 @@ class ShmemVecEnv(VecEnv):
             self.parent_pipes.append(parent_pipe)
             proc.start()
             child_pipe.close()
+            print("Process created!")
         self.waiting_step = False
 
     def reset(self):
@@ -215,3 +216,4 @@ def _subproc_worker(pipe, parent_pipe, env_fn_wrapper, obs_buf, obs_shape):
                 raise RuntimeError('Got unrecognized cmd %s' % cmd)
     finally:
         env.close()
+        pipe.close()

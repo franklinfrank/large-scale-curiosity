@@ -31,11 +31,7 @@ def start_experiment(**args):
     else:
         make_env = partial(make_env_all_params, add_monitor=True, args=args)
 
-    trainer = Trainer(make_env=make_env,
-                      num_timesteps=args['num_timesteps'], hps=args,
-                      envs_per_process=args['envs_per_process'])
-    log, tf_sess = get_experiment_environment(**args)
-    exp_name = args['exp_name']
+
     with log, tf_sess:
         logdir = logger.get_dir()
         print("results will be saved to ", logdir)
@@ -56,38 +52,59 @@ def start_tune(**args):
         trainer.train(saver, tf_sess, restore=True)
 
 class Trainer(object):
-    def __init__(self, make_env, hps, num_timesteps, envs_per_process):
+    def __init__(self, make_env, hps, num_timesteps, envs_per_process, exp_name=None, env_name=None, policy=None, feat_ext=None, dyn=None, agent_num=None, restore_name=None):
         self.make_env = make_env
         self.hps = hps
         self.envs_per_process = envs_per_process
         self.num_timesteps = num_timesteps
         self._set_env_vars()
+        if exp_name:
+            self.exp_name = exp_name
+        else:
+            self.exp_name = hps['exp_name']
+        if env_name:
+            self.env_name = env_name
+        else:
+            self.env_name = hps['env']
+        if policy is None:
+            self.policy = CnnPolicy(
+                scope='pol',
+                ob_space=self.ob_space,
+                ac_space=self.ac_space,
+                hidsize=512,
+                feat_dim=512,
+                ob_mean=self.ob_mean,
+                ob_std=self.ob_std,
+                layernormalize=False,
+                nl=tf.nn.leaky_relu)
+        else:
+            self.policy = policy
+            self.policy.restore()
 
-        self.policy = CnnPolicy(
-            scope='pol',
-            ob_space=self.ob_space,
-            ac_space=self.ac_space,
-            hidsize=512,
-            feat_dim=512,
-            ob_mean=self.ob_mean,
-            ob_std=self.ob_std,
-            layernormalize=False,
-            nl=tf.nn.leaky_relu)
+        if feat_ext:
+            self.feature_extractor = feat_ext
+            self.feature_extractor.restore()
+        else:
 
-        self.feature_extractor = {"none": FeatureExtractor,
-                                  "idf": InverseDynamics,
-                                  "vaesph": partial(VAE, spherical_obs=True),
-                                  "vaenonsph": partial(VAE, spherical_obs=False),
-                                  "pix2pix": JustPixels}[hps['feat_learning']]
-        self.feature_extractor = self.feature_extractor(policy=self.policy,
-                                                        features_shared_with_policy=False,
-                                                        feat_dim=512,
-                                                        layernormalize=hps['layernorm'])
+            self.feature_extractor = {"none": FeatureExtractor,
+                                      "idf": InverseDynamics,
+                                      "vaesph": partial(VAE, spherical_obs=True),
+                                      "vaenonsph": partial(VAE, spherical_obs=False),
+                                      "pix2pix": JustPixels}[hps['feat_learning']]
 
-        self.dynamics = Dynamics if hps['feat_learning'] != 'pix2pix' else UNet
-        self.dynamics = self.dynamics(auxiliary_task=self.feature_extractor,
-                                      predict_from_pixels=hps['dyn_from_pixels'],
-                                      feat_dim=512)
+            self.feature_extractor = self.feature_extractor(policy=self.policy,
+                                                            features_shared_with_policy=False,
+                                                            feat_dim=512,
+                                                            layernormalize=hps['layernorm'])
+        if dyn:
+            self.dynamics = dyn
+            self.dynamics.restore()
+        else:
+
+            self.dynamics = Dynamics if hps['feat_learning'] != 'pix2pix' else UNet
+            self.dynamics = self.dynamics(auxiliary_task=self.feature_extractor,
+                                          predict_from_pixels=hps['dyn_from_pixels'],
+                                          feat_dim=512)
         self.agent = PpoOptimizer(
             scope='ppo',
             ob_space=self.ob_space,
@@ -108,11 +125,13 @@ class Trainer(object):
             ext_coeff=hps['ext_coeff'],
             int_coeff=hps['int_coeff'],
             dynamics=self.dynamics,
-            exp_name = hps['exp_name'],
-            env_name=hps['env'],
+            exp_name=self.exp_name,
+            env_name=self.env_name,
             video_log_freq=hps['video_log_freq'],
             model_save_freq=hps['model_save_freq'],
-            use_apples=hps['use_apples']
+            use_apples=hps['use_apples'],
+            agent_num=agent_num,
+            restore_name=restore_name
         )
 
         self.agent.to_report['aux'] = tf.reduce_mean(self.feature_extractor.loss)
@@ -152,7 +171,6 @@ class Trainer(object):
         saver.save(sess, filename, write_meta_graph=False)
         self.policy.save_model(self.hps['exp_name'], "final_eval")
         self.agent.stop_interaction()
-
 
 def make_env_all_params(rank, add_monitor, args):
     if args["env_kind"] == 'deepmind':
@@ -203,6 +221,7 @@ def make_specific_env(rank, add_monitor, args):
         env = Monitor(env, osp.join(logger.get_dir(), '%.2i' % rank))
     return env
 
+
 def get_experiment_environment(**args):
     from utils import setup_mpi_gpus, setup_tensorflow_session
     from baselines.common import set_global_seeds
@@ -228,6 +247,7 @@ def add_environments_params(parser):
     parser.add_argument('--multi_train_envs', type=str, nargs='+', default=None)
     parser.add_argument('--tune_env', type=str, default=None)
 
+
 def add_optimization_params(parser):
     parser.add_argument('--lambda', type=float, default=0.95)
     parser.add_argument('--gamma', type=float, default=0.99)
@@ -238,7 +258,7 @@ def add_optimization_params(parser):
     parser.add_argument('--ent_coeff', type=float, default=0.001)
     parser.add_argument('--nepochs', type=int, default=3)
     parser.add_argument('--num_timesteps', type=int, default=int(1e8))
-
+    parser.add_argument('--num_timesteps_tune', type=int, default=int(1e7))
 
 def add_rollout_params(parser):
     parser.add_argument('--nsteps_per_seg', type=int, default=900)
