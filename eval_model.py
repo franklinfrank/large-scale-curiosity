@@ -21,7 +21,6 @@ def start_eval(**args):
 	env = FrameStack(env, 4)
 	num_episodes = args['num_episodes']
 	exp_name = args['exp_name']
-	save_name = exp_name + "_20eps_eval"
 	with tf.Session() as sess:
 		saver = tf.train.import_meta_graph("models/" + exp_name + ".ckpt" + ".meta")
 		saver.restore(sess, "models/" + exp_name + ".ckpt")
@@ -39,24 +38,17 @@ def start_eval(**args):
 			rew_type = "no"
 		else:
 			rew_type = "dense"
-		rew_type = env_name
-		eval_steps = args['eval_steps']
-		successes = 0
-		success_file = save_name + "_{}_steps_eval_on_{}_results.txt".format(eval_steps, rew_type)
-		success_path = os.path.join("trajectories, success_file")
 		for i in range(num_episodes):
-			
-			trajectory_file = save_name + "_{}_steps_eval_on_".format(eval_steps) + rew_type  + "_itr" + str(i) + "_trajectory.txt"
+			trajectory_file = exp_name + "_eval_on_" + rew_type  + "_itr" + str(i) + "_trajectory.txt"
 			if not os.path.exists("trajectories"):
 				os.makedirs("trajectories")
 			trajectory_path = os.path.join("trajectories", trajectory_file)
-			open(trajectory_path, "w").close()
 			ob = env.reset()
 			ob = np.array(ob)
 			ob = ob.reshape((1,84,84,4))
 			eprews = []
 			ep_images = []
-			for step in range(eval_steps):
+			for step in range(200):
 				if step == 0:
 					ep_images.append(env.unwrapped._last_observation)
 				action, vp, nlp = sess.run([a_samp, vpred, nlp_samp], 
@@ -80,14 +72,10 @@ def start_eval(**args):
 				else:
 					eprews.append(rew)
 			for j in range(len(ep_images)):
-				image_file = os.path.join("images", save_name + "_{}_steps_eval_on_".format(eval_steps) + rew_type + "_itr" + str(i) + "_{}".format(j) + ".png")
+				image_file = os.path.join("images", exp_name + "_eval_on_" + rew_type + "_itr" + str(i) + "_{}".format(j) + ".png")
 				cv2.imwrite(image_file, ep_images[j])				
 			print("Total reward is {}".format(sum(eprews)))
-			if sum(eprews) >= 10:
-				successes += 1
-		print("Total success rate: {}".format(successes * 1.0 / num_episodes))
-		with open(success_file, 'a') as f:
-			f.write("Total success rate: {}".format(successes*1.0 / num_episodes)) 
+           
                         
                     
 
@@ -98,6 +86,5 @@ if __name__ == "__main__":
 	parser.add_argument('--seed', type=int, default=0)
 	parser.add_argument('--env', type=str, default='DeepmindLabNavMazeStatic01-v0')
 	parser.add_argument('--num_episodes', type=int, default=1)
-	parser.add_argument('--eval_steps', type=int, default=200)
 	args = parser.parse_args()
 	start_eval(**args.__dict__)

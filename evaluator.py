@@ -16,20 +16,17 @@ class Evaluator(object):
         self.env = ProcessFrame84(self.env, crop=False)
         self.env = FrameStack(self.env, 4)
         self.num_episodes = 1
-        self.ep_len = 900
+        self.ep_len = 4500
         self.policy = policy
         if not os.path.exists('images'):
             os.mkdir('images')
         self.image_folder = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'images')
     
     def format_obs(self, obs_name, obs):
-        if obs is not None:
-            nums = ",".join(map(str, obs))
-            dict_format = "{" + nums + "}"
-            final_str = "observation \"{}\" - {}\n".format(obs_name, dict_format)
-            return final_str
-        else:
-            return ""
+        nums = ",".join(map(str, obs))
+        dict_format = "{" + nums + "}"
+        final_str = "observation \"{}\" - {}\n".format(obs_name, dict_format)
+        return final_str
 
     def eval_model(self, ep_num):
         for i in range(self.num_episodes):
@@ -39,18 +36,13 @@ class Evaluator(object):
             trajectory_path = os.path.join("trajectories", trajectory_file)
             ep_images = []
             ob = self.env.reset()
-            ob = np.array(ob).reshape((1,84,84,4))
+            ob = np.array(ob)
             eprews = []
             if i == 0:
                 ep_images.append(self.env.unwrapped._last_observation)
             for step in range(self.ep_len):
-                print("Eval step {}".format(step))
-                action, vpred, nlp = self.policy.get_ac_value_nlp(ob)
+                action, vpred, nlp = self.policy.get_ac_value_nlp_eval(ob)
                 ob, rew, done, info = self.env.step(action[0])
-                if done:
-                    self.env.reset()
-                ob = np.array(ob).reshape((1,84,84,4))
-                print("Eval action is {}".format(action[0]))
                 pos_trans, pos_rot, vel_trans, vel_rot = self.env.unwrapped.get_pos_and_vel()
                 if i == 0:
                     ep_images.append(self.env.unwrapped._last_observation)
