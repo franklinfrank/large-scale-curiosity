@@ -22,7 +22,7 @@ from cppo_agent import PpoOptimizer
 from dynamics import Dynamics, UNet
 from utils import random_agent_ob_mean_std
 from wrappers import MontezumaInfoWrapper, make_mario_env, make_robo_pong, make_robo_hockey, \
-    make_multi_pong, AddRandomStateToInfo, MaxAndSkipEnv, ProcessFrame84, ExtraTimeLimit
+    make_multi_pong, AddRandomStateToInfo, MaxAndSkipEnv, ProcessFrame84, ExtraTimeLimit, DeepmindLabInfo
 
 
 def start_experiment(**args):
@@ -122,7 +122,8 @@ class Trainer(object):
             model_save_freq=hps['model_save_freq'],
             use_apples=hps['use_apples'],
             agent_num=agent_num,
-            restore_name=restore_name
+            restore_name=restore_name,
+            multi_envs=hps['multi_train_envs']
         )
 
         self.agent.to_report['aux'] = tf.reduce_mean(self.feature_extractor.loss)
@@ -187,6 +188,7 @@ def make_specific_env(rank, add_monitor, args):
     env = gym.make(args['multi_train_envs'][env_index])
     env = ProcessFrame84(env, crop=False)
     env = FrameStack(env, 4)
+    env = DeepmindLabInfo(env, args['multi_train_envs'][env_index])
     print("Made env {}".format(args['multi_train_envs'][env_index]))
     if add_monitor:
         env = Monitor(env, osp.join(logger.get_dir(), '%.2i' % rank))

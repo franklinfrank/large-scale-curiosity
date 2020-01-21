@@ -11,7 +11,7 @@ from evaluator import Evaluator
 
 class Rollout(object):
     def __init__(self, ob_space, ac_space, nenvs, nsteps_per_seg, nsegs_per_env, nlumps, envs, policy,int_rew_coeff, ext_rew_coeff, record_rollouts, 
-                    dynamics, exp_name, env_name, video_log_freq, model_save_freq, use_apples):
+                    dynamics, exp_name, env_name, video_log_freq, model_save_freq, use_apples, multi_envs=None):
         self.nenvs = nenvs
         self.nsteps_per_seg = nsteps_per_seg
         self.nsegs_per_env = nsegs_per_env
@@ -54,6 +54,7 @@ class Rollout(object):
         self.best_ext_ret = None
         self.all_visited_rooms = []
         self.all_scores = []
+        self.multi_envs = multi_envs
 
         self.step_count = 0
         self.use_apples = use_apples
@@ -187,7 +188,15 @@ class Rollout(object):
                 if MPI.COMM_WORLD.Get_rank() == 0:
                     print("All visited levels")
                     print(self.all_visited_rooms)
-
+            if self.multi_envs:
+                for env in self.multi_envs:
+                    rew_key = env + "_reward"
+                    #cov_key = env + "_coverage"
+                    env_rews = [i[rew_key] for i in all_ep_infos if rew_key in i]
+                    #env_covs = [i[cov_key] for i in all_ep_infos if cov_key in i]
+                    self.statlists['eprew_' + env].extend(env_rews)
+                    self.stats['eprew_recent_' + env] = np.mean(env_rews)
+                    #self.stats['coverage_' + env] = np.mean(env_covs)
             current_max = np.max(all_ep_infos['r'])
         else:
             current_max = None
