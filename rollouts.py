@@ -103,7 +103,15 @@ class Rollout(object):
                     if "n_states_visited" in info:
                         epinfo["n_states_visited"] = info["n_states_visited"]
                         epinfo["states_visited"] = info["states_visited"]
+                    if "multi_envs" in info:
+                        for env in self.multi_envs:
+                            rew_key = env + "_reward"
+                            #cov_key = env + "_coverage"
+                            if rew_key in info:
+                                epinfo[rew_key] = info[rew_key]
+                                #epinfo[cov_key] = info[cov_key]
                     self.ep_infos_new.append((self.step_count, epinfo))
+
 
             sli = slice(l * self.lump_stride, (l + 1) * self.lump_stride)
 
