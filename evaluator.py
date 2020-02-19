@@ -12,7 +12,7 @@ import gym_deepmindlab
 class Evaluator(object):
     def __init__(self, env_name, num_episodes, exp_name, policy):
         self.exp_name = exp_name
-        self.env = gym.make("Eval" + env_name)
+        self.env = gym.make(env_name)
         self.env = ProcessFrame84(self.env, crop=False)
         self.env = FrameStack(self.env, 4)
         self.num_episodes = 1
@@ -43,18 +43,20 @@ class Evaluator(object):
             for step in range(self.ep_len):
                 action, vpred, nlp = self.policy.get_ac_value_nlp_eval(ob)
                 ob, rew, done, info = self.env.step(action[0])
-                pos_trans, pos_rot, vel_trans, vel_rot = self.env.unwrapped.get_pos_and_vel()
                 if i == 0:
                     ep_images.append(self.env.unwrapped._last_observation)
                 if rew is None:
                     eprews.append(0)
                 else:
                     eprews.append(rew)
-                with open(trajectory_path, 'a') as f:
-                    f.write(self.format_obs("DEBUG.POS.TRANS", pos_trans))
-                    f.write(self.format_obs("DEBUG.POS.ROT", pos_rot))
-                    f.write(self.format_obs("VEL.TRANS", vel_trans))
-                    f.write(self.format_obs("VEL.ROT", vel_rot))
+                if step >  0:
+                    pos_trans, pos_rot, vel_trans, vel_rot = self.env.unwrapped.get_pos_and_vel()
+
+                    with open(trajectory_path, 'a') as f:
+                        f.write(self.format_obs("DEBUG.POS.TRANS", pos_trans))
+                        f.write(self.format_obs("DEBUG.POS.ROT", pos_rot))
+                        f.write(self.format_obs("VEL.TRANS", vel_trans))
+                        f.write(self.format_obs("VEL.ROT", vel_rot))
                 
             for j in range(len(ep_images)):
                 image_file = os.path.join(self.image_folder, self.exp_name +"_{}_{}_{}_".format(ep_num, i, j) + ".png")

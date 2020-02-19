@@ -93,6 +93,7 @@ class Rollout(object):
                     prevrews = [x if x is not None else 0 for x in prevrews]
                 else:
                     prevrews = [x if x is not None and x >= 10 else 0 for x in prevrews]
+            #print(prevrews)
             for info in infos:
                 epinfo = info.get('episode', {})
                 mzepinfo = info.get('mz_episode', {})
@@ -196,14 +197,14 @@ class Rollout(object):
                 if MPI.COMM_WORLD.Get_rank() == 0:
                     print("All visited levels")
                     print(self.all_visited_rooms)
-            if self.multi_envs:
-                for env in self.multi_envs:
-                    rew_key = env + "_reward"
+            #if self.multi_envs:
+                #for env in self.multi_envs:
+                    #rew_key = env + "_reward"
                     #cov_key = env + "_coverage"
-                    env_rews = [i[rew_key] for i in all_ep_infos if rew_key in i]
+                    #env_rews = [i[rew_key] for i in all_ep_infos if rew_key in i]
                     #env_covs = [i[cov_key] for i in all_ep_infos if cov_key in i]
-                    self.statlists['eprew_' + env].extend(env_rews)
-                    self.stats['eprew_recent_' + env] = np.mean(env_rews)
+                    #self.statlists['eprew_' + env].extend(env_rews)
+                    #self.stats['eprew_recent_' + env] = np.mean(env_rews)
                     #self.stats['coverage_' + env] = np.mean(env_covs)
             current_max = np.max(all_ep_infos['r'])
         else:

@@ -144,6 +144,8 @@ class Trainer(object):
         while True:
             info = self.agent.step()
             if info['update']:
+                if info['update']['recent_best_ext_ret'] is None:
+                    info['update']['recent_best_ext_ret'] = 0
                 logger.logkvs(info['update'])
                 logger.dumpkvs()
             if self.agent.rollout.stats['tcount'] > self.num_timesteps:
@@ -188,7 +190,7 @@ def make_specific_env(rank, add_monitor, args):
     env = gym.make(args['multi_train_envs'][env_index])
     env = ProcessFrame84(env, crop=False)
     env = FrameStack(env, 4)
-    env = DeepmindLabInfo(env, args['multi_train_envs'][env_index])
+    #env = DeepmindLabInfo(env, args['multi_train_envs'][env_index])
     print("Made env {}".format(args['multi_train_envs'][env_index]))
     if add_monitor:
         env = Monitor(env, osp.join(logger.get_dir(), '%.2i' % rank))
