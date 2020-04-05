@@ -112,6 +112,7 @@ def layernorm(x):
 getsess = tf.get_default_session
 
 fc = partial(tf.layers.dense, kernel_initializer=normc_initializer(1.))
+lstm = tf.keras.layers.LSTM
 activ = tf.nn.relu
 
 

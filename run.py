@@ -18,6 +18,7 @@ from mpi4py import MPI
 
 from auxiliary_tasks import FeatureExtractor, InverseDynamics, VAE, JustPixels
 from cnn_policy import CnnPolicy
+from lstm_policy import LSTMPolicy
 from cppo_agent import PpoOptimizer
 from dynamics import Dynamics, UNet
 from utils import random_agent_ob_mean_std
@@ -74,16 +75,30 @@ class Trainer(object):
         else:
             self.env_name = hps['env']
         if policy is None:
-            self.policy = CnnPolicy(
-                scope='pol',
-                ob_space=self.ob_space,
-                ac_space=self.ac_space,
-                hidsize=512,
-                feat_dim=512,
-                ob_mean=self.ob_mean,
-                ob_std=self.ob_std,
-                layernormalize=False,
-                nl=tf.nn.leaky_relu)
+            if hps['lstm']:
+                self.policy = LSTMPolicy(
+                    scope='pol',
+                    ob_space=self.ob_space,
+                    ac_space=self.ac_space,
+                    feat_dim=512,
+                    ob_mean=self.ob_mean,
+                    ob_std=self.ob_std,
+                    layernormalize=False,
+                    nl=tf.nn.leaky_relu
+                )
+
+            else:
+                self.policy = CnnPolicy(
+                    scope='pol',
+                    ob_space=self.ob_space,
+                    ac_space=self.ac_space,
+                    hidsize=512,
+                    feat_dim=512,
+                    ob_mean=self.ob_mean,
+                    ob_std=self.ob_std,
+                    layernormalize=False,
+                    nl=tf.nn.leaky_relu
+                )
         else:
             self.policy = policy
             self.policy.restore()
@@ -296,6 +311,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_save_freq', type=int, default=25)
     parser.add_argument('--use_apples', type=int, default=1)
     parser.add_argument('--restore_model', type=str, default=None)
+    parser.add_argument('--lstm', type=int, default=0)
 
     args = parser.parse_args()
     if not args.restore_model:
