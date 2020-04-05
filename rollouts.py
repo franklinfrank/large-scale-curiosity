@@ -78,12 +78,12 @@ class Rollout(object):
         ep_num = self.step_count // self.nsteps_per_seg
         for l in range(self.nlumps):
             obs, prevrews, news, infos = self.env_get(l)
-#            if l == 0 and ep_num % 100 == 0:
-#               zero_env_obs = self.envs[0].get_env_zero_obs()
-#                dirname = os.path.abspath(os.path.dirname(__file__))
-#                image_folder = 'images'
-#                image_file = os.path.join(dirname, image_folder + "/" + self.exp_name +"_" + str(ep_num) + ".png")
-#                cv2.imwrite(image_file, zero_env_obs)
+            if l == 0 and self.video_log_freq > 0 and ep_num % self.video_log_freq == 0:
+                zero_env_obs = self.envs[0].get_latest_ob()
+                dirname = os.path.abspath(os.path.dirname(__file__))
+                image_folder = 'images'
+                image_file = os.path.join(dirname, image_folder + "/" + self.exp_name +"_train_ep" + str(ep_num)+"_{}".format(s) + ".png")
+                cv2.imwrite(image_file, zero_env_obs)
                 
             # if t > 0:
             #     prev_feat = self.prev_feat[l]

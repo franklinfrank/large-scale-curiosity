@@ -39,8 +39,24 @@ def start_experiment(**args):
     with log, tf_sess:
         logdir = logger.get_dir()
         print("results will be saved to ", logdir)
-        trainer.train()
+        params = tf.global_variables()
+        saver = tf.train.Saver(params)
+        trainer.train(saver, tf_sess)
 
+def start_tune(**args):
+    if args['multi_train_envs']:
+        make_env = partial(make_specific_env, add_monitor=True, args=args)
+    else:
+        make_env = partial(make_tune_env, add_monitor=True, args=args)
+    trainer = Trainer(make_env=make_env, num_timesteps=args['num_timesteps'], hps=args, 
+                      envs_per_process=args['envs_per_process'])
+    log, tf_sess = get_experiment_environment(**args)
+    print("Tune env is {}".format(args['tune_env']))
+    with log, tf_sess:
+        logdir = logger.get_dir()
+        params = tf.global_variables()
+        saver = tf.train.Saver(params)
+        trainer.train(saver, tf_sess, restore=True)
 
 class Trainer(object):
     def __init__(self, make_env, hps, num_timesteps, envs_per_process, exp_name=None, env_name=None, policy=None, feat_ext=None, dyn=None, agent_num=None, restore_name=None):
@@ -139,8 +155,13 @@ class Trainer(object):
         del env
         self.envs = [functools.partial(self.make_env, i) for i in range(self.envs_per_process)]
 
-    def train(self):
+    def train(self, saver, sess, restore=False):
         self.agent.start_interaction(self.envs, nlump=self.hps['nlumps'], dynamics=self.dynamics)
+        if restore:
+            print("Restoring model for training")
+            saver.restore(sess, "models/" + self.hps['restore_model'] + ".ckpt")
+            print("Loaded model", self.hps['restore_model'])
+        write_meta_graph = False
         while True:
             info = self.agent.step()
             if info['update']:
@@ -150,9 +171,13 @@ class Trainer(object):
                 logger.dumpkvs()
             if self.agent.rollout.stats['tcount'] > self.num_timesteps:
                 break
-
+        if self.hps['tune_env']:
+            filename = "models/" + self.hps['restore_model'] + "_tune_on_" + self.hps['tune_env'] + "_final.ckpt"
+        else:
+            filename = "models/" + self.hps['exp_name'] + "_final.ckpt"
+        saver.save(sess, filename, write_meta_graph=False)
+        self.policy.save_model(self.hps['exp_name'], 'final')
         self.agent.stop_interaction()
-        self.policy.save_model(self.hps['exp_name'])
 
 def make_env_all_params(rank, add_monitor, args):
     if args["env_kind"] == 'deepmind':
@@ -180,6 +205,14 @@ def make_env_all_params(rank, add_monitor, args):
         elif args["env"] == "hockey":
             env = make_robo_hockey()
 
+    if add_monitor:
+        env = Monitor(env, osp.join(logger.get_dir(), '%.2i' % rank))
+    return env
+
+def make_tune_env(rank, add_monitor, args):
+    env = gym.make(args['tune_env'])
+    env = ProcessFrame84(env, crop=False)
+    env = FrameStack(env, 4)
     if add_monitor:
         env = Monitor(env, osp.join(logger.get_dir(), '%.2i' % rank))
     return env
@@ -220,7 +253,7 @@ def add_environments_params(parser):
     parser.add_argument('--env_kind', type=str, default="deepmind")
     parser.add_argument('--noop_max', type=int, default=30)
     parser.add_argument('--multi_train_envs', type=str, nargs='+', default=None)
-
+    parser.add_argument('--tune_env', type=str, default=None)
 
 def add_optimization_params(parser):
     parser.add_argument('--lambda', type=float, default=0.95)
@@ -262,7 +295,10 @@ if __name__ == '__main__':
     parser.add_argument('--video_log_freq', type=int, default=100)
     parser.add_argument('--model_save_freq', type=int, default=25)
     parser.add_argument('--use_apples', type=int, default=1)
+    parser.add_argument('--restore_model', type=str, default=None)
 
     args = parser.parse_args()
-
-    start_experiment(**args.__dict__)
+    if not args.restore_model:
+        start_experiment(**args.__dict__)
+    else:
+        start_tune(**args.__dict__)

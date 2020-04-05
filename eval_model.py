@@ -24,6 +24,7 @@ def start_eval(**args):
         save_name = args['save_name']
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
+        num_steps = args['num_steps']
         with tf.Session(config=config) as sess:
                 saver = tf.train.import_meta_graph("models/" + exp_name + ".ckpt" + ".meta")
                 saver.restore(sess, "models/" + exp_name + ".ckpt")
@@ -54,7 +55,7 @@ def start_eval(**args):
                         ob = ob.reshape((1,84,84,4))
                         eprews = []
                         ep_images = []
-                        for step in range(200):
+                        for step in range(num_steps):
                                 if step == 0:
                                         ep_images.append(env.unwrapped._last_observation)
                                 action, vp, nlp = sess.run([a_samp, vpred, nlp_samp], 
@@ -85,7 +86,11 @@ def start_eval(**args):
                         total_rew += sum(eprews)
                 print("Success rate: {}".format(success_count * 1.0 / num_episodes))
                 print("Avg reward: {}".format(total_rew * 1.0 / num_episodes))
-                    
+                with open("results/" + save_name + "_eval_on_" + rew_type + "_eval_results.txt", "w") as f:
+                    f.write("Number of episodes: {}\n".format(num_episodes))
+                    f.write("Success rate: {}\n".format(success_count * 1.0 / num_episodes))
+                    f.write("Avg reward: {}\n".format(total_rew * 1.0 /  num_episodes))
+
 
 if __name__ == "__main__":
         import argparse
@@ -97,5 +102,6 @@ if __name__ == "__main__":
         parser.add_argument('--seed', type=int, default=0)
         parser.add_argument('--env', type=str, default='DeepmindLabNavMazeStatic01-v0')
         parser.add_argument('--num_episodes', type=int, default=1)
+        parser.add_argument('--num_steps', type=int, default=200)
         args = parser.parse_args()
         start_eval(**args.__dict__)
