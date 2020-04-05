@@ -5,7 +5,7 @@ import os
 from utils import getsess, lstm, small_convnet, activ, fc, flatten_two_dims, unflatten_first_dim
 
 class LSTMPolicy(object):
-    def __init__(self, ob_space, ac_space,
+    def __init__(self, ob_space, ac_space, hidsize,
                  ob_mean, ob_std, feat_dim, layernormalize, nl, scope="policy"):
         if layernormalize:
             print("Warning: policy is operating on top of layer-normed features. It might slow down the training.")
@@ -21,18 +21,20 @@ class LSTMPolicy(object):
                                         shape=(None, None) + ob_space.shape, name='ob')
             self.ph_ac = self.ac_pdtype.sample_placeholder([None, None], name='ac')
             self.pd = self.vpred = None
+            self.hidsize = hidsize
             self.feat_dim = feat_dim
             self.scope = scope
             pdparamsize = self.ac_pdtype.param_shape()[0]
 
             sh = tf.shape(self.ph_ob)
+            print("Policy network input obs shape: {}".format(sh))
             x = flatten_two_dims(self.ph_ob)
             self.flat_features = self.get_features(x, reuse=tf.AUTO_REUSE)
             self.features = unflatten_first_dim(self.flat_features, sh)
 
             with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
-                pdparam = lstm(pdparamsize)(self.flat_features)
-                # pdparam = fc(x, name='pd', units=pdparamsize, activation=None)
+                x = lstm(hidsize)(self.flat_features)
+                pdparam = fc(x, name='pd', units=pdparamsize, activation=None)
                 vpred = fc(x, name='value_function_output', units=1, activation=None)
 
             pdparam = unflatten_first_dim(pdparam, sh)
