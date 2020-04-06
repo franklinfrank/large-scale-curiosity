@@ -51,18 +51,32 @@ class LSTMPolicy(object):
             tf.add_to_collection('ph_ob', self.ph_ob)
 
     # ob has shape (batch_size, steps, 84, 84, 4)
-    def get_lstm_features(self, ob, reuse):
-        output_features = []
-        timesteps = tf.shape(ob)[1]
-        for i in range(timesteps):
-            batch_size = tf.shape(ob)[0]
-            ob_slice = tf.slice(ob, [0, i, 0, 0, 0], [-1, 1, -1, -1, -1])
-            x = tf.reshape(ob_slice, [batch_size] + list(self.ob_space.shape))
-            with tf.variable_scope(self.scope + "_features", reuse=reuse):
-                x = (tf.to_float(x) - self.ob_mean) / self.ob_std
-                x = small_convnet(x, nl=self.nl, feat_dim=self.feat_dim, last_nl=None, layernormalize=self.layernormalize)
-            output_features.append(x)
-        return tf.stack(output_features, axis=1)
+    def get_lstm_features(self, x, reuse):
+        # output_features = []
+        # timesteps = tf.shape(ob)[1]
+        # for i in range(timesteps):
+        #     batch_size = tf.shape(ob)[0]
+        #     ob_slice = tf.slice(ob, [0, i, 0, 0, 0], [-1, 1, -1, -1, -1])
+        #     x = tf.reshape(ob_slice, [batch_size] + list(self.ob_space.shape))
+        #     with tf.variable_scope(self.scope + "_features", reuse=reuse):
+        #         x = (tf.to_float(x) - self.ob_mean) / self.ob_std
+        #         x = small_convnet(x, nl=self.nl, feat_dim=self.feat_dim, last_nl=None, layernormalize=self.layernormalize)
+        #     output_features.append(x)
+        # return tf.stack(output_features, axis=1)
+        x_has_timesteps = (x.get_shape().ndims == 5)
+        if x_has_timesteps:
+            sh = tf.shape(x)
+            x = flatten_two_dims(x)
+
+        with tf.variable_scope(self.scope + "_features", reuse=reuse):
+            x = (tf.to_float(x) - self.ob_mean) / self.ob_std
+            x = small_convnet(x, nl=self.nl, feat_dim=self.feat_dim, last_nl=None, layernormalize=self.layernormalize)
+
+        if x_has_timesteps:
+            x = unflatten_first_dim(x, sh)
+        print("Shape before reshape: {}".format(x.get_shape().as_list()))
+        x = tf.reshape(x, [sh[0], -1, self.feat_dim])
+        return x
 
     def get_ac_value_nlp(self, ob):
         a, vpred, nlp = \
