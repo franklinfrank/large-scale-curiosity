@@ -50,13 +50,14 @@ class LSTMPolicy(object):
             tf.add_to_collection('nlp_samp', self.nlp_samp)
             tf.add_to_collection('ph_ob', self.ph_ob)
 
-    # ob has shape (batch_size, 1, 84, 84, 4)
+    # ob has shape (batch_size, steps, 84, 84, 4)
     def get_lstm_features(self, ob, reuse):
         output_features = []
-        for i in range(self.ob_space.shape[-1]):
+        timesteps = tf.shape(ob)[1]
+        for i in range(timesteps):
             batch_size = tf.shape(ob)[0]
-            ob_slice = tf.slice(ob, [0, 0, 0, 0, i], [-1, -1, -1, -1, 1])
-            x = tf.reshape(ob_slice, [batch_size] + self.ob_space.shape[:2] + [1])
+            ob_slice = tf.slice(ob, [0, i, 0, 0, 0], [-1, 1, -1, -1, -1])
+            x = tf.reshape(ob_slice, [batch_size] + list(self.ob_space.shape))
             with tf.variable_scope(self.scope + "_features", reuse=reuse):
                 x = (tf.to_float(x) - self.ob_mean) / self.ob_std
                 x = small_convnet(x, nl=self.nl, feat_dim=self.feat_dim, last_nl=None, layernormalize=self.layernormalize)
