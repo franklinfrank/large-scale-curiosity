@@ -123,7 +123,6 @@ def flatten_two_dims(x):
 def unflatten_first_dim(x, sh):
     return tf.reshape(x, [sh[0], sh[1]] + x.get_shape().as_list()[1:])
 
-
 def add_pos_bias(x):
     with tf.variable_scope(name_or_scope=None, default_name="pos_bias"):
         b = tf.get_variable(name="pos_bias", shape=[1] + x.get_shape().as_list()[1:], dtype=tf.float32,

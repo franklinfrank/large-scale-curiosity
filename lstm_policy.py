@@ -1,11 +1,12 @@
 import tensorflow as tf
 from baselines.common.distributions import make_pdtype
+import numpy as np
 import os
 
 from utils import getsess, lstm, small_convnet, activ, fc, flatten_two_dims, unflatten_first_dim
 
 class LSTMPolicy(object):
-    def __init__(self, ob_space, ac_space, hidsize,
+    def __init__(self, ob_space, ac_space, hidsize, batchsize,
                  ob_mean, ob_std, feat_dim, layernormalize, nl, scope="policy"):
         if layernormalize:
             print("Warning: policy is operating on top of layer-normed features. It might slow down the training.")
@@ -22,18 +23,17 @@ class LSTMPolicy(object):
             self.ph_ac = self.ac_pdtype.sample_placeholder([None, None], name='ac')
             self.pd = self.vpred = None
             self.hidsize = hidsize
+            self.batchsize = batchsize
             self.feat_dim = feat_dim
             self.scope = scope
             pdparamsize = self.ac_pdtype.param_shape()[0]
 
             sh = tf.shape(self.ph_ob)
-            print("Policy network input obs shape: {}".format(sh))
-            x = flatten_two_dims(self.ph_ob)
-            self.flat_features = self.get_features(x, reuse=tf.AUTO_REUSE)
-            self.features = unflatten_first_dim(self.flat_features, sh)
+            self.lstm_features = self.get_lstm_features(self.ph_ob, reuse=tf.AUTO_REUSE)
+            print("Input shape into LSTM layer: {}".format(self.lstm_features.shape))
 
             with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
-                x = lstm(hidsize)(self.flat_features)
+                x = lstm(hidsize)(self.lstm_features)
                 pdparam = fc(x, name='pd', units=pdparamsize, activation=None)
                 vpred = fc(x, name='value_function_output', units=1, activation=None)
 
@@ -51,19 +51,17 @@ class LSTMPolicy(object):
             tf.add_to_collection('nlp_samp', self.nlp_samp)
             tf.add_to_collection('ph_ob', self.ph_ob)
 
-    def get_features(self, x, reuse):
-        x_has_timesteps = (x.get_shape().ndims == 5)
-        if x_has_timesteps:
-            sh = tf.shape(x)
-            x = flatten_two_dims(x)
-
-        with tf.variable_scope(self.scope + "_features", reuse=reuse):
-            x = (tf.to_float(x) - self.ob_mean) / self.ob_std
-            x = small_convnet(x, nl=self.nl, feat_dim=self.feat_dim, last_nl=None, layernormalize=self.layernormalize)
-
-        if x_has_timesteps:
-            x = unflatten_first_dim(x, sh)
-        return x
+    # ob has shape (batch_size, 1, 84, 84, 4)
+    def get_lstm_features(self, ob, reuse):
+        output_features = []
+        for i in range(self.ob_space[-1]):
+            ob_slice = ob[:, :, :, :, i]
+            x = tf.reshape(ob_slice, [self.batchsize] + self.ob_space[:2] + [1])
+            with tf.variable_scope(self.scope + "_features", reuse=reuse):
+                x = (tf.to_float(x) - self.ob_mean) / self.ob_std
+                x = small_convnet(x, nl=self.nl, feat_dim=self.feat_dim, last_nl=None, layernormalize=self.layernormalize)
+            output_features.append(x)
+        return tf.stack(output_features, axis=1)
 
     def get_ac_value_nlp(self, ob):
         a, vpred, nlp = \

@@ -80,6 +80,8 @@ class Trainer(object):
                     scope='pol',
                     ob_space=self.ob_space,
                     ac_space=self.ac_space,
+                    hidsize=512,
+                    batchsize=hps['envs_per_process'],
                     feat_dim=512,
                     ob_mean=self.ob_mean,
                     ob_std=self.ob_std,
