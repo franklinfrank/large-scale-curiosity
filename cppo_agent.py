@@ -248,7 +248,9 @@ class PpoOptimizer(object):
         return info
 
     def step(self):
+        print("Collecting rollout")
         self.rollout.collect_rollout()
+        print("Performing update")
         update_info = self.update()
         return {'update': update_info}
 

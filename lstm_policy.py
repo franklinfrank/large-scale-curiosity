@@ -23,7 +23,6 @@ class LSTMPolicy(object):
             self.ph_ac = self.ac_pdtype.sample_placeholder([None, None], name='ac')
             self.pd = self.vpred = None
             self.hidsize = hidsize
-            self.batchsize = batchsize
             self.feat_dim = feat_dim
             self.scope = scope
             pdparamsize = self.ac_pdtype.param_shape()[0]
@@ -55,8 +54,9 @@ class LSTMPolicy(object):
     def get_lstm_features(self, ob, reuse):
         output_features = []
         for i in range(self.ob_space.shape[-1]):
-            ob_slice = ob[:, :, :, :, i]
-            x = tf.reshape(ob_slice, [self.batchsize] + self.ob_space.shape[:2] + [1])
+            batch_size = tf.shape(ob)[0]
+            ob_slice = tf.slice(ob, [0, 0, 0, 0, i], [-1, -1, -1, -1, 1])
+            x = tf.reshape(ob_slice, [batch_size] + self.ob_space.shape[:2] + [1])
             with tf.variable_scope(self.scope + "_features", reuse=reuse):
                 x = (tf.to_float(x) - self.ob_mean) / self.ob_std
                 x = small_convnet(x, nl=self.nl, feat_dim=self.feat_dim, last_nl=None, layernormalize=self.layernormalize)
