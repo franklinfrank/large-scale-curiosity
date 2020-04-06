@@ -54,9 +54,9 @@ class LSTMPolicy(object):
     # ob has shape (batch_size, 1, 84, 84, 4)
     def get_lstm_features(self, ob, reuse):
         output_features = []
-        for i in range(self.ob_space[-1]):
+        for i in range(self.ob_space.shape[-1]):
             ob_slice = ob[:, :, :, :, i]
-            x = tf.reshape(ob_slice, [self.batchsize] + self.ob_space[:2] + [1])
+            x = tf.reshape(ob_slice, [self.batchsize] + self.ob_space.shape[:2] + [1])
             with tf.variable_scope(self.scope + "_features", reuse=reuse):
                 x = (tf.to_float(x) - self.ob_mean) / self.ob_std
                 x = small_convnet(x, nl=self.nl, feat_dim=self.feat_dim, last_nl=None, layernormalize=self.layernormalize)
