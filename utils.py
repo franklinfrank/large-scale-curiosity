@@ -68,6 +68,7 @@ def setup_mpi_gpus():
     processes_outranked_on_this_node = [n for n in nodes_ordered_by_rank[:MPI.COMM_WORLD.Get_rank()] if n == node_id]
     local_rank = len(processes_outranked_on_this_node)
     os.environ['CUDA_VISIBLE_DEVICES'] = str(available_gpus[local_rank])
+    print("GPUS: {}".format(os.environ['CUDA_VISIBLE_DEVICES']))
 
 
 def guess_available_cpus():
@@ -81,6 +82,7 @@ def setup_tensorflow_session():
         inter_op_parallelism_threads=num_cpu,
         intra_op_parallelism_threads=num_cpu
     )
+    tf_config.gpu_options.allow_growth = True
     return tf.Session(config=tf_config)
 
 
@@ -112,7 +114,8 @@ def layernorm(x):
 getsess = tf.get_default_session
 
 fc = partial(tf.layers.dense, kernel_initializer=normc_initializer(1.))
-lstm = tf.keras.layers.LSTM
+lstm = partial(tf.keras.layers.LSTM, return_sequences=True, return_state=True)
+#seq_lstm = partial(tf.keras.layers.LSTM, return_sequences=True)
 activ = tf.nn.relu
 
 
@@ -121,6 +124,7 @@ def flatten_two_dims(x):
 
 
 def unflatten_first_dim(x, sh):
+    print("Unflatten shape: {}".format(sh))
     return tf.reshape(x, [sh[0], sh[1]] + x.get_shape().as_list()[1:])
 
 def add_pos_bias(x):

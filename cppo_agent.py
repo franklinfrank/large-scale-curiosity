@@ -23,7 +23,7 @@ class PpoOptimizer(object):
                  nminibatches,
                  normrew, normadv, use_news, ext_coeff, int_coeff,
                  nsteps_per_seg, nsegs_per_env, dynamics, exp_name, env_name, video_log_freq, model_save_freq,
-                 use_apples, agent_num=None, restore_name=None, multi_envs=None):
+                 use_apples, agent_num=None, restore_name=None, multi_envs=None, lstm=False, lstm2_size=0):
         self.dynamics = dynamics
         self.exp_name = exp_name
         self.env_name = env_name
@@ -32,6 +32,8 @@ class PpoOptimizer(object):
         self.use_apples = use_apples
         self.agent_num = agent_num
         self.multi_envs = multi_envs
+        self.lstm = lstm
+        self.lstm2_size = lstm2_size
         with tf.variable_scope(scope):
             self.use_recorder = True
             self.n_updates = 0
@@ -138,7 +140,7 @@ class PpoOptimizer(object):
                                record_rollouts=self.use_recorder,
                                dynamics=dynamics, exp_name=self.exp_name, env_name=self.env_name,
                                video_log_freq=self.video_log_freq, model_save_freq=self.model_save_freq,
-                               use_apples=self.use_apples, multi_envs=self.multi_envs)
+                               use_apples=self.use_apples, multi_envs=self.multi_envs, lstm=self.lstm, lstm2_size=self.lstm2_size)
 
         self.buf_advs = np.zeros((nenvs, self.rollout.nsteps), np.float32)
         self.buf_rets = np.zeros((nenvs, self.rollout.nsteps), np.float32)
@@ -215,6 +217,10 @@ class PpoOptimizer(object):
             (self.ph_ret, resh(self.buf_rets)),
             (self.ph_adv, resh(self.buf_advs)),
         ]
+        #print("Buff obs shape: {}".format(self.rollout.buf_obs.shape))
+        #print("Buff rew shape: {}".format(self.rollout.buf_rews.shape))
+        #print("Buff nlps shape: {}".format(self.rollout.buf_nlps.shape))
+        #print("Buff vpreds shape: {}".format(self.rollout.buf_vpreds.shape))
         ph_buf.extend([
             (self.dynamics.last_ob,
              self.rollout.buf_obs_last.reshape([self.nenvs * self.nsegs_per_env, 1, *self.ob_space.shape]))
@@ -228,6 +234,17 @@ class PpoOptimizer(object):
                 mbenvinds = envinds[start:end]
                 fd = {ph: buf[mbenvinds] for (ph, buf) in ph_buf}
                 fd.update({self.ph_lr: self.lr, self.ph_cliprange: self.cliprange})
+                if self.lstm:
+                    fd.update({
+                        self.stochpol.c_in_1: self.rollout.train_lstm1_c[mbenvinds,:],
+                        self.stochpol.h_in_1: self.rollout.train_lstm1_h[mbenvinds,:]
+                    })
+                if self.lstm2_size:
+                    fd.update({
+                        self.stochpol.c_in_2: self.rollout.train_lstm2_c[mbenvinds,:],
+                        self.stochpol.h_in_2: self.rollout.train_lstm2_h[mbenvinds,:]
+                    })
+
                 mblossvals.append(getsess().run(self._losses + (self._train,), fd)[:-1])
 
         mblossvals = [mblossvals[0]]
@@ -248,9 +265,9 @@ class PpoOptimizer(object):
         return info
 
     def step(self):
-        print("Collecting rollout")
+        #print("Collecting rollout")
         self.rollout.collect_rollout()
-        print("Performing update")
+        #print("Performing update")
         update_info = self.update()
         return {'update': update_info}
 

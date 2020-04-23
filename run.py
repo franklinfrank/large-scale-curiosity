@@ -85,6 +85,8 @@ class Trainer(object):
                     feat_dim=512,
                     ob_mean=self.ob_mean,
                     ob_std=self.ob_std,
+                    lstm1_size=hps['lstm1_size'],
+                    lstm2_size=hps['lstm2_size'],
                     layernormalize=False,
                     nl=tf.nn.leaky_relu
                 )
@@ -156,7 +158,9 @@ class Trainer(object):
             use_apples=hps['use_apples'],
             agent_num=agent_num,
             restore_name=restore_name,
-            multi_envs=hps['multi_train_envs']
+            multi_envs=hps['multi_train_envs'],
+            lstm=hps['lstm'],
+            lstm2_size=hps['lstm2_size']
         )
 
         self.agent.to_report['aux'] = tf.reduce_mean(self.feature_extractor.loss)
@@ -313,7 +317,9 @@ if __name__ == '__main__':
     parser.add_argument('--model_save_freq', type=int, default=25)
     parser.add_argument('--use_apples', type=int, default=1)
     parser.add_argument('--restore_model', type=str, default=None)
-    parser.add_argument('--lstm', type=int, default=0)
+    parser.add_argument('--lstm', type=int, default=1)
+    parser.add_argument('--lstm1_size', type=int, default=512)
+    parser.add_argument('--lstm2_size', type=int, default=0)
 
     args = parser.parse_args()
     if not args.restore_model:

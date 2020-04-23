@@ -7,7 +7,7 @@ from utils import getsess, lstm, small_convnet, activ, fc, flatten_two_dims, unf
 
 class LSTMPolicy(object):
     def __init__(self, ob_space, ac_space, hidsize, batchsize,
-                 ob_mean, ob_std, feat_dim, layernormalize, nl, scope="policy"):
+                 ob_mean, ob_std, feat_dim, layernormalize, nl, lstm1_size, lstm2_size, scope="policy"):
         if layernormalize:
             print("Warning: policy is operating on top of layer-normed features. It might slow down the training.")
         self.layernormalize = layernormalize
@@ -15,6 +15,8 @@ class LSTMPolicy(object):
         self.ob_mean = ob_mean
         self.ob_std = ob_std
         with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
+            self.lstm1_size = lstm1_size
+            self.lstm2_size = lstm2_size
             self.ob_space = ob_space
             self.ac_space = ac_space
             self.ac_pdtype = make_pdtype(ac_space)
@@ -29,15 +31,41 @@ class LSTMPolicy(object):
 
             sh = tf.shape(self.ph_ob)
             self.lstm_features = self.get_lstm_features(self.ph_ob, reuse=tf.AUTO_REUSE)
-            print("Input shape into LSTM layer: {}".format(self.lstm_features.shape))
-
+            print("Input shape into LSTM layer: {}".format(self.lstm_features.get_shape()))
+            self.lstm1_c = np.zeros((batchsize, self.lstm1_size))
+            self.lstm1_h = np.zeros((batchsize, self.lstm1_size))
+            if self.lstm2_size > 0:
+                self.lstm2_c = np.zeros((batchsize, self.lstm2_size))
+                self.lstm2_h = np.zeros((batchsize, self.lstm2_size))
+            self.lstm1_c_eval = np.zeros((1, self.lstm1_size))
+            self.lstm1_h_eval = np.zeros((1, self.lstm1_size))
+            if self.lstm2_size> 0:
+                self.lstm2_c_eval = np.zeros((1, self.lstm2_size))
+                self.lstm2_h_eval = np.zeros((1, self.lstm2_size))
             with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
-                x = lstm(hidsize)(self.lstm_features)
+                self.c_in_1 = tf.placeholder(tf.float32, name='c_1', shape=[None, self.lstm1_size])
+                self.h_in_1 = tf.placeholder(tf.float32, name='h_1', shape=[None, self.lstm1_size])
+                if self.lstm2_size:
+                    self.c_in_2 = tf.placeholder(tf.float32, name='c_2', shape=[None, self.lstm2_size])
+                    self.h_in_2 = tf.placeholder(tf.float32, name='h_2', shape=[None, self.lstm2_size])
+                init_1 = tf.contrib.rnn.LSTMStateTuple(self.c_in_1, self.h_in_1)
+                if self.lstm2_size:
+                    init_2 = tf.contrib.rnn.LSTMStateTuple(self.c_in_2, self.h_in_2)
+                x, self.c_out_1, self.h_out_1 = lstm(self.lstm1_size)(self.lstm_features, initial_state=init_1)
+                if self.lstm2_size:
+                    x, self.c_out_2, self.h_out_2  = lstm(self.lstm2_size)(x, initial_state=init_2)
+                #x = lstm(256)(x)
+                #x = lstm(hidsize)(self.lstm_features)
+                print("Lstm output shape: {}".format(x.get_shape()))
+                x = flatten_two_dims(x)
                 pdparam = fc(x, name='pd', units=pdparamsize, activation=None)
+                print("Pdparam shape: {}".format(pdparam.get_shape()))
                 vpred = fc(x, name='value_function_output', units=1, activation=None)
+                print("Vpred shape: {}".format(vpred.get_shape()))
 
             pdparam = unflatten_first_dim(pdparam, sh)
             self.vpred = unflatten_first_dim(vpred, sh)[:, :, 0]
+            #self.vpred = vpred
             self.pd = pd = self.ac_pdtype.pdfromflat(pdparam)
             self.a_samp = pd.sample()
             self.entropy = pd.entropy()
@@ -75,18 +103,39 @@ class LSTMPolicy(object):
         if x_has_timesteps:
             x = unflatten_first_dim(x, sh)
         print("Shape before reshape: {}".format(x.get_shape().as_list()))
-        x = tf.reshape(x, [sh[0], -1, self.feat_dim])
+        x = tf.reshape(x, [-1, sh[1], self.feat_dim])
         return x
 
     def get_ac_value_nlp(self, ob):
-        a, vpred, nlp = \
-            getsess().run([self.a_samp, self.vpred, self.nlp_samp],
-                          feed_dict={self.ph_ob: ob[:, None]})
+        feed_dict = {self.ph_ob: ob[:, None], self.c_in_1: self.lstm1_c, self.h_in_1: self.lstm1_h}
+        if self.lstm2_size > 0:
+            feed_dict.update({self.c_in_2: self.lstm2_c, self.h_in_2: self.lstm2_h})
+        if self.lstm2_size > 0:  
+            a, vpred, nlp, self.lstm1_c, self.lstm1_h, self.lstm2_c, self.lstm2_h = \
+                getsess().run([self.a_samp, self.vpred, self.nlp_samp, self.c_out_1, self.h_out_1, \
+                                self.c_out_2, self.h_out_2],
+                                feed_dict=feed_dict)
+        else:
+            a, vpred, nlp, self.lstm1_c, self.lstm1_h = \
+                getsess().run([self.a_samp, self.vpred, self.nlp_samp, self.c_out_1, self.h_out_1], feed_dict=feed_dict)
+        #print("LSTM1 c: {}".format(self.lstm1_c))
+        #print("LSTM1 h: {}".format(self.lstm1_h))
+        #print("LSTM2 c: {}".format(self.lstm2_c))
+        #print("LSTM2 h: {}".format(self.lstm2_h))
         return a[:, 0], vpred[:, 0], nlp[:, 0]
 
     def get_ac_value_nlp_eval(self, ob):
-        a, vpred, nlp = getsess().run([self.a_samp, self.vpred, self.nlp_samp],
-                          feed_dict={self.ph_ob: ((ob,),)})
+        feed_dict = {self.ph_ob: ((ob,),), self.c_in_1: self.lstm1_c_eval, self.h_in_1: self.lstm1_h_eval}
+        if self.lstm2_size:
+            feed_dict.update({self.c_in_2: self.lstm2_c_eval, self.h_in_2: self.lstm2_h_eval})
+        if self.lstm2_size:  
+            a, vpred, nlp, self.lstm1_c_eval, self.lstm1_h_eval, self.lstm2_c_eval, self.lstm2_h_eval = \
+                getsess().run([self.a_samp, self.vpred, self.nlp_samp, self.c_out_1, self.h_out_1, \
+                                self.c_out_2, self.h_out_2],
+                                feed_dict=feed_dict)
+        else:
+            a, vpred, nlp, self.lstm1_c_eval, self.lstm1_h_eval = \
+                getsess().run([self.a_samp, self.vpred, self.nlp_samp, self.c_out_1, self.h_out_1], feed_dict=feed_dict)
         return a[:,0], vpred[:,0], nlp[:,0]
 
     def save_model(self, model_name, ep_num):
