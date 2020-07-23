@@ -10,7 +10,7 @@ from functools import partial
 import gym
 import gym_deepmindlab
 import datetime
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from baselines import logger
 from baselines.bench import Monitor
 from baselines.common.atari_wrappers import NoopResetEnv, FrameStack
@@ -23,10 +23,11 @@ from cppo_agent import PpoOptimizer
 from dynamics import Dynamics, UNet
 from utils import random_agent_ob_mean_std
 from wrappers import MontezumaInfoWrapper, make_mario_env, make_robo_pong, make_robo_hockey, \
-    make_multi_pong, AddRandomStateToInfo, MaxAndSkipEnv, ProcessFrame84, ExtraTimeLimit, DeepmindLabInfo
+    make_multi_pong, AddRandomStateToInfo, MaxAndSkipEnv, ProcessFrame84, ExtraTimeLimit, DeepmindLabMaze
 
 
 def start_experiment(**args):
+    tf.disable_v2_behavior()
     if args['multi_train_envs']:
         make_env = partial(make_specific_env, add_monitor=True, args=args)
     else:
@@ -160,6 +161,7 @@ class Trainer(object):
             restore_name=restore_name,
             multi_envs=hps['multi_train_envs'],
             lstm=hps['lstm'],
+            lstm1_size=hps['lstm1_size'],
             lstm2_size=hps['lstm2_size']
         )
 
@@ -205,6 +207,7 @@ def make_env_all_params(rank, add_monitor, args):
         env = gym.make(args['env'])
         env = ProcessFrame84(env, crop=False)
         env = FrameStack(env, 4)
+       # env = DeepmindLabMaze(env, args["env"], args['nsteps_per_seg'])
     elif args["env_kind"] == 'atari':
         env = gym.make(args['env'])
         assert 'NoFrameskip' in env.spec.id
@@ -234,6 +237,7 @@ def make_tune_env(rank, add_monitor, args):
     env = gym.make(args['tune_env'])
     env = ProcessFrame84(env, crop=False)
     env = FrameStack(env, 4)
+    env = DeepmindLabMaze(env, args['tune_env'], args['nsteps_per_seg'])
     if add_monitor:
         env = Monitor(env, osp.join(logger.get_dir(), '%.2i' % rank))
     return env

@@ -1,4 +1,4 @@
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import gym
 import gym_deepmindlab
 from wrappers import ProcessFrame84
@@ -7,7 +7,10 @@ import numpy as np
 import cv2
 import os
 import sys
+from baselines.common import set_global_seeds
+from gym.utils.seeding import hash_seed
 
+tf.disable_v2_behavior()
 def format_obs(obs_name, obs):
     nums = ",".join(map(str, obs))
     dict_format = "{" + nums + "}"
@@ -22,17 +25,40 @@ def start_eval(**args):
         num_episodes = args['num_episodes']
         exp_name = args['exp_name']
         save_name = args['save_name']
+        os.environ["CUDA_VISIBLE_DEVICES"]="0"
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
         num_steps = args['num_steps']
+        #process_seed = args["seed"] + 1000 * MPI.COMM_WORLD.Get_rank()
+        #process_seed = hash_seed(process_seed, max_bytes=4)
+        #set_global_seeds(process_seed)
+        #setup_mpi_gpus()
+
         with tf.Session(config=config) as sess:
                 saver = tf.train.import_meta_graph("models/" + exp_name + ".ckpt" + ".meta")
                 saver.restore(sess, "models/" + exp_name + ".ckpt")
                 vpred = tf.get_collection("vpred")[0]
                 a_samp = tf.get_collection("a_samp")[0]
+                print(a_samp)
                 entropy = tf.get_collection("entropy")[0]
                 nlp_samp = tf.get_collection("nlp_samp")[0]
                 ph_ob = tf.get_collection("ph_ob")[0]
+                print(ph_ob)
+                if args['lstm']:
+                    print(tf.get_collection("c_out_1"))
+                    c_out_1 = tf.get_collection("c_out_1")[0]
+                    print(c_out_1)
+                    h_out_1 = tf.get_collection("h_out_1")[0]
+                    c_in_1 = tf.get_collection('c_in_1')[0]
+                    print(c_in_1)
+                    h_in_1 = tf.get_collection('h_in_1')[0]
+                    if args['lstm2_size']:
+                        c_out_2 = tf.get_collection('c_out_2')[0]
+                        print(c_out_2)
+                        h_out_2 = tf.get_collection('h_out_2')[0]
+                        print(h_out_2)
+                        c_in_2 = tf.get_collection('c_in_2')[0]
+                        h_in_2 = tf.get_collection('h_in_2')[0]
                 print("Model restored")
                 env_name = args['env']
                 env_type = env_name.split('-')[0][-3:]
@@ -55,13 +81,33 @@ def start_eval(**args):
                         ob = ob.reshape((1,84,84,4))
                         eprews = []
                         ep_images = []
+                        if args['lstm']:
+                            lstm1_c = np.zeros((1, args['lstm1_size']))
+                            lstm1_h = np.zeros((1, args['lstm1_size']))
+                            if args['lstm2_size']:
+                                lstm2_c = np.zeros((1, args['lstm2_size']))
+                                lstm2_h = np.zeros((1, args['lstm2_size']))
                         for step in range(num_steps):
                                 if step == 0:
                                         ep_images.append(env.unwrapped._last_observation)
-                                action, vp, nlp = sess.run([a_samp, vpred, nlp_samp], 
+                                if args['lstm']:
+                                    feed_dict = {ph_ob: ob[:, None], c_in_1: lstm1_c, h_in_1: lstm1_h}
+                                    if args['lstm2_size'] > 0:
+                                        feed_dict.update({c_in_2: lstm2_c, h_in_2: lstm2_h})
+                                        action, vp, nlp, lstm1_c, lstm1_h, lstm2_c, lstm2_h = sess.run([a_samp, vpred, nlp_samp, c_out_1, h_out_1, \
+                                            c_out_2, h_out_2], feed_dict=feed_dict)
+                                        
+                                    else:
+                                        action, vp, nlp, lstm1_c, lstm1_h = \
+                                            sess.run([a_samp, vpred, nlp_samp, c_out_1, h_out_1], feed_dict=feed_dict)
+
+                                else:
+                                    action, vp, nlp = sess.run([a_samp, vpred, nlp_samp], 
                                                 feed_dict={ph_ob: ob[:,None]})
                                 action = action[:,0]
                                 ob, rew, done, info = env.step(action[0])
+                                if done:
+                                    print("Env done")
                                 pos_trans, pos_rot, vel_trans, vel_rot = env.unwrapped.get_pos_and_vel()
                                 ob = np.array(ob).reshape((1,84,84,4))
                                 ep_images.append(env.unwrapped._last_observation)
@@ -76,6 +122,7 @@ def start_eval(**args):
                                         print("Reached goal on step {}".format(step))
                                         eprews.append(rew)
                                         success_count += 1
+                                        #env.reset()
                                         break
                                 else:
                                         eprews.append(rew)
@@ -86,6 +133,7 @@ def start_eval(**args):
                         total_rew += sum(eprews)
                 print("Success rate: {}".format(success_count * 1.0 / num_episodes))
                 print("Avg reward: {}".format(total_rew * 1.0 / num_episodes))
+                print("Eval name: {}".format(save_name + "_eval_on_" + rew_type))
                 with open("results/" + save_name + "_eval_on_" + rew_type + "_eval_results.txt", "w") as f:
                     f.write("Number of episodes: {}\n".format(num_episodes))
                     f.write("Success rate: {}\n".format(success_count * 1.0 / num_episodes))
@@ -103,5 +151,8 @@ if __name__ == "__main__":
         parser.add_argument('--env', type=str, default='DeepmindLabNavMazeStatic01-v0')
         parser.add_argument('--num_episodes', type=int, default=1)
         parser.add_argument('--num_steps', type=int, default=200)
+        parser.add_argument('--lstm', type=int, default=0)
+        parser.add_argument('--lstm1_size', type=int, default=512)
+        parser.add_argument('--lstm2_size', type=int, default=0)
         args = parser.parse_args()
         start_eval(**args.__dict__)

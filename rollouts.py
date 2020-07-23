@@ -11,7 +11,7 @@ from evaluator import Evaluator
 
 class Rollout(object):
     def __init__(self, ob_space, ac_space, nenvs, nsteps_per_seg, nsegs_per_env, nlumps, envs, policy, int_rew_coeff, ext_rew_coeff, \
-                   record_rollouts, dynamics, exp_name, env_name, video_log_freq, model_save_freq, use_apples, multi_envs=None, lstm=False, lstm2_size=0):
+                   record_rollouts, dynamics, exp_name, env_name, video_log_freq, model_save_freq, use_apples, multi_envs=None, lstm=False, lstm1_size=512, lstm2_size=0):
         self.nenvs = nenvs
         self.nsteps_per_seg = nsteps_per_seg
         self.nsegs_per_env = nsegs_per_env
@@ -29,6 +29,7 @@ class Rollout(object):
         self.video_log_freq = video_log_freq
         self.model_save_freq = model_save_freq
         self.lstm = lstm
+        self.lstm1_size = lstm1_size
         self.lstm2_size = lstm2_size
 #        self.reward_fun = lambda ext_rew, int_rew: ext_rew_coeff * np.clip(ext_rew, -1., 1.) + int_rew_coeff * int_rew
         self.reward_fun = lambda ext_rew, int_rew: ext_rew_coeff*ext_rew + int_rew_coeff*int_rew
@@ -78,7 +79,7 @@ class Rollout(object):
         t = self.step_count % self.nsteps
         s = t % self.nsteps_per_seg
         ep_num = self.step_count // self.nsteps_per_seg
-        if s == 0:
+        if s == 0 and self.lstm:
             self.train_lstm1_c = self.policy.lstm1_c 
             self.train_lstm1_h = self.policy.lstm1_h
             if self.lstm2_size:
@@ -86,13 +87,14 @@ class Rollout(object):
                 self.train_lstm2_h = self.policy.lstm2_h 
         for l in range(self.nlumps):
             obs, prevrews, news, infos = self.env_get(l)
-            #if any(news):
-                #self.policy.lstm1_c = np.zeros((self.nenvs, 64))
-                #self.policy.lstm1_h = np.zeros((self.nenvs, 64))
-                #self.policy.lstm2_c = np.zeros((self.nenvs, 256))
-                #self.policy.lstm2_h = np.zeros((self.nenvs, 256))
-                #print(news[:5])
-                #print("env reset")
+            if self.lstm:
+                for idx in range(len(news)):
+                    if news[idx]:
+                        self.policy.lstm1_c[idx] = np.zeros(self.lstm1_size)
+                        self.policy.lstm1_h[idx] = np.zeros(self.lstm1_size)
+                        if self.lstm2_size:
+                            self.policy.lstm2_c[idx] = np.zeros(self.lstm2_size)
+                            self.policy.lstm2_h[idx] = np.zeros(self.lstm2_size)
 
             if l == 0 and self.video_log_freq > 0 and ep_num % self.video_log_freq == 0:
                 zero_env_obs = self.envs[0].get_latest_ob()
@@ -235,6 +237,11 @@ class Rollout(object):
     def env_step(self, l, acs):
         self.envs[l].step_async(acs)
         self.env_results[l] = None
+
+    def env_reset(self, l, acs):
+        ob = self.envs[l].reset()
+        out = self.env_results[l] = (ob, None, np.ones(self.lump_stride, bool), {})
+        return out
 
     def env_get(self, l):
         if self.step_count == 0:

@@ -1,7 +1,8 @@
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 from utils import small_convnet, fc, activ, flatten_two_dims, unflatten_first_dim, small_deconvnet
 
+tf.disable_v2_behavior()
 
 class FeatureExtractor(object):
     def __init__(self, policy, features_shared_with_policy, feat_dim=None, layernormalize=None,

@@ -17,22 +17,40 @@ def unwrap(env):
     else:
         return env
 
-class DeepmindLabInfo(gym.Wrapper):
-    def __init__(self, env, name):
+class DeepmindLabMaze(gym.Wrapper):
+    def __init__(self, env, name, episode_length):
         gym.Wrapper.__init__(self, env)
         self.name = name
+        self.step_count = 0
+        self.done = False
+        self.episode_length = episode_length
+        self.last_obs = None
         #self.visited = [[False for i in range(15)]for j in range(15)]
         #self.covered = 0
 
     def step(self, action):
         extra_info = {}
-        obs, reward, done, info = self.env.step(action)
-        extra_info.update(info)
-        rew_key = self.name + "_reward"
-        extra_info[rew_key] = reward
-        #cov_key = self.name + "_coverage"
-
-        return obs, reward, done, info
+        self.step_count += 1
+        if self.done:
+            return_obs = self.last_obs
+            if self.step_count == self.episode_length: 
+                ep_reset = True
+                self.reset()
+            return return_obs, 0, -1, dict()
+        else:
+            obs, reward, done, info = self.env.step(action)
+            if reward == 10:
+                self.done = True
+                done = True
+                self.last_obs = obs
+            return obs, reward, done, info
+    
+    def reset(self):
+        self.step_count = 0
+        self.last_obs = None
+        self.done = False
+        obs = self.env.reset()
+        return obs
 
 class MaxAndSkipEnv(gym.Wrapper):
     def __init__(self, env, skip=4):

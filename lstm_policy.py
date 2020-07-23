@@ -62,8 +62,7 @@ class LSTMPolicy(object):
                 print("Pdparam shape: {}".format(pdparam.get_shape()))
                 vpred = fc(x, name='value_function_output', units=1, activation=None)
                 print("Vpred shape: {}".format(vpred.get_shape()))
-
-            pdparam = unflatten_first_dim(pdparam, sh)
+                pdparam = unflatten_first_dim(pdparam, sh)
             self.vpred = unflatten_first_dim(vpred, sh)[:, :, 0]
             #self.vpred = vpred
             self.pd = pd = self.ac_pdtype.pdfromflat(pdparam)
@@ -77,6 +76,16 @@ class LSTMPolicy(object):
             tf.add_to_collection('entropy', self.entropy)
             tf.add_to_collection('nlp_samp', self.nlp_samp)
             tf.add_to_collection('ph_ob', self.ph_ob)
+            tf.add_to_collection('c_out_1', self.c_out_1)
+            tf.add_to_collection('h_out_1', self.h_out_1)
+            tf.add_to_collection('c_in_1', self.c_in_1)
+            tf.add_to_collection('h_in_1', self.h_in_1)
+            if self.lstm2_size > 0:
+                tf.add_to_collection('c_out_2', self.c_out_2)
+                tf.add_to_collection('h_out_2', self.h_out_2)
+                tf.add_to_collection('c_in_2', self.c_in_2)
+                tf.add_to_collection('h_in_2', self.h_in_2)
+
 
     # ob has shape (batch_size, steps, 84, 84, 4)
     def get_lstm_features(self, x, reuse):

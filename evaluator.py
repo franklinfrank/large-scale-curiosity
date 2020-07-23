@@ -5,7 +5,6 @@ import numpy as np
 from cnn_policy import CnnPolicy
 import cv2
 import os
-from tensorflow.python.tools import inspect_checkpoint as chkp
 import gym
 import gym_deepmindlab
 

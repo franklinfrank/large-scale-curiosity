@@ -4,11 +4,11 @@ import platform
 from functools import partial
 
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from baselines.common.tf_util import normc_initializer
 from mpi4py import MPI
 
-
+tf.disable_v2_behavior()
 def bcast_tf_vars_from_root(sess, vars):
     """
     Send the root node's parameters to every worker.
@@ -49,7 +49,9 @@ def guess_available_gpus(n_gpus=None):
     if 'CUDA_VISIBLE_DEVICES' in os.environ:
         cuda_visible_divices = os.environ['CUDA_VISIBLE_DEVICES']
         cuda_visible_divices = cuda_visible_divices.split(',')
-        return [int(n) for n in cuda_visible_divices]
+        available_gpus = [int(n) for n in cuda_visible_divices]
+        print(available_gpus)
+        return available_gpus
     nvidia_dir = '/proc/driver/nvidia/gpus/'
     if os.path.exists(nvidia_dir):
         n_gpus = len(os.listdir(nvidia_dir))
@@ -114,7 +116,8 @@ def layernorm(x):
 getsess = tf.get_default_session
 
 fc = partial(tf.layers.dense, kernel_initializer=normc_initializer(1.))
-lstm = partial(tf.keras.layers.LSTM, return_sequences=True, return_state=True)
+#lstm = partial(tf.keras.layers.LSTM, return_sequences=True, return_state=True)
+lstm = partial(tf.keras.layers.CuDNNLSTM, return_sequences=True, return_state=True)
 #seq_lstm = partial(tf.keras.layers.LSTM, return_sequences=True)
 activ = tf.nn.relu
 

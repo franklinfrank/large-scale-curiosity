@@ -1,10 +1,10 @@
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from baselines.common.distributions import make_pdtype
 import os
 
 from utils import getsess, small_convnet, activ, fc, flatten_two_dims, unflatten_first_dim
 
-
+tf.disable_v2_behavior()
 class CnnPolicy(object):
     def __init__(self, ob_space, ac_space, hidsize,
                  ob_mean, ob_std, feat_dim, layernormalize, nl, scope="policy"):

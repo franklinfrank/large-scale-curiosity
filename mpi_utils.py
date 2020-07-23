@@ -1,7 +1,8 @@
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from mpi4py import MPI
 
+tf.disable_v2_behavior()
 
 class MpiAdamOptimizer(tf.train.AdamOptimizer):
     """Adam optimizer that averages gradients across mpi processes."""
