@@ -278,6 +278,7 @@ def add_environments_params(parser):
     parser.add_argument('--env_kind', type=str, default="deepmind")
     parser.add_argument('--noop_max', type=int, default=30)
     parser.add_argument('--multi_train_envs', type=str, nargs='+', default=None)
+    # If reloading a model, use this to specify which environment to load
     parser.add_argument('--tune_env', type=str, default=None)
 
 def add_optimization_params(parser):
@@ -312,14 +313,18 @@ if __name__ == '__main__':
     parser.add_argument('--seed', help='RNG seed', type=int, default=0)
     parser.add_argument('--dyn_from_pixels', type=int, default=0)
     parser.add_argument('--use_news', type=int, default=0)
+    # Coefficients for external and intrinsic reward
     parser.add_argument('--ext_coeff', type=float, default=0.)
     parser.add_argument('--int_coeff', type=float, default=1.)
     parser.add_argument('--layernorm', type=int, default=0)
     parser.add_argument('--feat_learning', type=str, default="none",
                         choices=["none", "idf", "vaesph", "vaenonsph", "pix2pix"])
     parser.add_argument('--video_log_freq', type=int, default=0)
+    # How often to save model checkpoints
     parser.add_argument('--model_save_freq', type=int, default=25)
+    # Flag to turn off reward from apples
     parser.add_argument('--use_apples', type=int, default=1)
+    # If reloading a model and training, use this flag to specify which model to load
     parser.add_argument('--restore_model', type=str, default=None)
     parser.add_argument('--lstm', type=int, default=0)
     parser.add_argument('--lstm1_size', type=int, default=512)
