@@ -317,11 +317,11 @@ if __name__ == '__main__':
     parser.add_argument('--layernorm', type=int, default=0)
     parser.add_argument('--feat_learning', type=str, default="none",
                         choices=["none", "idf", "vaesph", "vaenonsph", "pix2pix"])
-    parser.add_argument('--video_log_freq', type=int, default=100)
+    parser.add_argument('--video_log_freq', type=int, default=0)
     parser.add_argument('--model_save_freq', type=int, default=25)
     parser.add_argument('--use_apples', type=int, default=1)
     parser.add_argument('--restore_model', type=str, default=None)
-    parser.add_argument('--lstm', type=int, default=1)
+    parser.add_argument('--lstm', type=int, default=0)
     parser.add_argument('--lstm1_size', type=int, default=512)
     parser.add_argument('--lstm2_size', type=int, default=0)
 
