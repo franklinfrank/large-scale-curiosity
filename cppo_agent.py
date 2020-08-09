@@ -241,6 +241,9 @@ class PpoOptimizer(object):
             (self.stochpol.ph_ob, mask(resh(self.rollout.buf_obs))),
             (self.ph_ret, mask(resh(self.buf_rets))),
             (self.ph_adv, mask(resh(self.buf_advs))),
+			(self.stochpol.ph_vel, mask(resh(self.rollout.buf_vels))),
+			(self.stochpol.ph_prev_rew, mask(resh(self.rollout.buf_prev_ext_rews))),
+			(self.stochpol.ph_prev_ac, mask(resh(self.rollout.buf_prev_acs))),
         ]
         #print("Buff obs shape: {}".format(self.rollout.buf_obs.shape))
         #print("Buff rew shape: {}".format(self.rollout.buf_rews.shape))

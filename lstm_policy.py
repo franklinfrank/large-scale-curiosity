@@ -23,6 +23,9 @@ class LSTMPolicy(object):
             self.ph_ob = tf.placeholder(dtype=tf.int32,
                                         shape=(None, None) + ob_space.shape, name='ob')
             self.ph_ac = self.ac_pdtype.sample_placeholder([None, None], name='ac')
+			self.ph_vel = tf.placeholder(dtype=tf.float32, shape=(None, None, 6), name='prev_vel')
+			self.ph_prev_ac = tf.placeholder(dtype=tf.int32, shape=(None, None), name='prev_ac')
+			slef.ph_prev_rew = tf.placeholder(dtype=tf.float32, shape=(None, None), name='prev_rew')
             self.pd = self.vpred = None
             self.hidsize = hidsize
             self.feat_dim = feat_dim
@@ -51,7 +54,10 @@ class LSTMPolicy(object):
                 init_1 = tf.contrib.rnn.LSTMStateTuple(self.c_in_1, self.h_in_1)
                 if self.lstm2_size:
                     init_2 = tf.contrib.rnn.LSTMStateTuple(self.c_in_2, self.h_in_2)
-                x, self.c_out_1, self.h_out_1 = lstm(self.lstm1_size)(self.lstm_features, initial_state=init_1)
+				x = tf.concat([self.lstm_features, self.ph_prev_rew], -1)
+                x, self.c_out_1, self.h_out_1 = lstm(self.lstm1_size)(x, initial_state=init_1)
+				x = tf.concat([x, self.ph_prev_ac], -1)
+				x = tf.concat([x, self.ph_prev_rew], -1)
                 if self.lstm2_size:
                     x, self.c_out_2, self.h_out_2  = lstm(self.lstm2_size)(x, initial_state=init_2)
                 #x = lstm(256)(x)
@@ -80,6 +86,9 @@ class LSTMPolicy(object):
             tf.add_to_collection('h_out_1', self.h_out_1)
             tf.add_to_collection('c_in_1', self.c_in_1)
             tf.add_to_collection('h_in_1', self.h_in_1)
+			tf.add_to_collection('ph_vel', self.ph_vel)
+			tf.add_to_collection('ph_prev_ac', self.ph_prev_ac)
+			tf.add_to_collection('ph_prev_rew', self.ph_prev_rew)
             if self.lstm2_size > 0:
                 tf.add_to_collection('c_out_2', self.c_out_2)
                 tf.add_to_collection('h_out_2', self.h_out_2)
@@ -115,8 +124,8 @@ class LSTMPolicy(object):
         x = tf.reshape(x, [-1, sh[1], self.feat_dim])
         return x
 
-    def get_ac_value_nlp(self, ob):
-        feed_dict = {self.ph_ob: ob[:, None], self.c_in_1: self.lstm1_c, self.h_in_1: self.lstm1_h}
+    def get_ac_value_nlp(self, ob, vel, prev_ac, prev_rew):
+        feed_dict = {self.ph_ob: ob[:, None], self.ph_vel: vel[:,None], self.ph_prev_ac: prev_ac[:, None], self.ph_prev_rew: prev_rew[:,None], self.c_in_1: self.lstm1_c, self.h_in_1: self.lstm1_h}
         if self.lstm2_size > 0:
             feed_dict.update({self.c_in_2: self.lstm2_c, self.h_in_2: self.lstm2_h})
         if self.lstm2_size > 0:  
