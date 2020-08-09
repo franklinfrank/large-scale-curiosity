@@ -22,33 +22,52 @@ class DeepmindLabMaze(gym.Wrapper):
         gym.Wrapper.__init__(self, env)
         self.name = name
         self.step_count = 0
+        self.found = 0
         self.done = False
+        #print("Ep length: {}".format(episode_length))
         self.episode_length = episode_length
         self.last_obs = None
+        self.info = None
         #self.visited = [[False for i in range(15)]for j in range(15)]
         #self.covered = 0
 
     def step(self, action):
-        extra_info = {}
-        self.step_count += 1
-        if self.done:
-            return_obs = self.last_obs
-            if self.step_count == self.episode_length: 
-                ep_reset = True
-                self.reset()
-            return return_obs, 0, -1, dict()
-        else:
-            obs, reward, done, info = self.env.step(action)
-            if reward == 10:
-                self.done = True
-                done = True
-                self.last_obs = obs
-            return obs, reward, done, info
+        obs, reward, done, info = self.env.step(action)
+        if reward == 10:
+            self.found = 1
+        if done:
+            info.update({'found': self.found})
+            #print(info)
+        return obs, reward, done, info
+        #self.step_count += 1
+        #if self.done:
+            #print("done step")
+            #return_obs = self.last_obs
+            #done = -1
+            #if self.step_count == self.episode_length: 
+            #    done = 1
+                #print(self.episode_length)
+            #return return_obs, 0, done, self.info
+        #else:
+            #obs, reward, done, info = self.env.step(action)
+            #if reward == 10:
+            #    print("setting done")
+            #    self.done = True
+            #    done = 0
+            #    self.last_obs = obs
+            #    self.info = info
+            #if self.step_count == self.episode_length:
+            #    #print(self.episode_length)
+            #    done = 1
+            #return obs, reward, done, info
     
     def reset(self):
         self.step_count = 0
         self.last_obs = None
         self.done = False
+        self.info = None
+        self.found = 0
+        print("wrapper env reset")
         obs = self.env.reset()
         return obs
 

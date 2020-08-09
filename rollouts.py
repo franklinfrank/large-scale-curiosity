@@ -37,6 +37,7 @@ class Rollout(object):
         self.buf_vpreds = np.empty((nenvs, self.nsteps), np.float32)
         self.buf_nlps = np.empty((nenvs, self.nsteps), np.float32)
         self.buf_rews = np.empty((nenvs, self.nsteps), np.float32)
+		self.buf_vels = np.empty((nenvs, self.nsteps, 2), np.float32)
         self.buf_ext_rews = np.empty((nenvs, self.nsteps), np.float32)
         self.buf_acs = np.empty((nenvs, self.nsteps, *self.ac_space.shape), self.ac_space.dtype)
         self.buf_obs = np.empty((nenvs, self.nsteps, *self.ob_space.shape), self.ob_space.dtype)
@@ -64,6 +65,8 @@ class Rollout(object):
 
     def collect_rollout(self):
         self.ep_infos_new = []
+        #for i in range(self.nlumps):
+            #self.env_reset(i)
         for t in range(self.nsteps):
             self.rollout_step()
         self.calculate_reward()
@@ -113,12 +116,14 @@ class Rollout(object):
                     prevrews = [x if x is not None and x >= 10 else 0 for x in prevrews]
             #print(prevrews)
             for info in infos:
+                #print("info: {}".format(info))
                 epinfo = info.get('episode', {})
                 mzepinfo = info.get('mz_episode', {})
                 retroepinfo = info.get('retro_episode', {})
                 epinfo.update(mzepinfo)
                 epinfo.update(retroepinfo)
                 if epinfo:
+                    #print("epinfo: {}".format(epinfo))
                     if "n_states_visited" in info:
                         epinfo["n_states_visited"] = info["n_states_visited"]
                         epinfo["states_visited"] = info["states_visited"]
@@ -129,6 +134,9 @@ class Rollout(object):
                             if rew_key in info:
                                 epinfo[rew_key] = info[rew_key]
                                 #epinfo[cov_key] = info[cov_key]
+                    if 'found' in info:
+                        epinfo['found'] = info['found']
+                        #print("updated found")
                     self.ep_infos_new.append((self.step_count, epinfo))
 
 
@@ -215,6 +223,9 @@ class Rollout(object):
                 if MPI.COMM_WORLD.Get_rank() == 0:
                     print("All visited levels")
                     print(self.all_visited_rooms)
+            if 'found' in keys_:
+                self.stats['found_frac'] = np.mean(all_ep_infos['found'])
+                print("Found frac: {}".format(self.stats['found_frac']))
             #if self.multi_envs:
                 #for env in self.multi_envs:
                     #rew_key = env + "_reward"
@@ -238,7 +249,7 @@ class Rollout(object):
         self.envs[l].step_async(acs)
         self.env_results[l] = None
 
-    def env_reset(self, l, acs):
+    def env_reset(self, l):
         ob = self.envs[l].reset()
         out = self.env_results[l] = (ob, None, np.ones(self.lump_stride, bool), {})
         return out

@@ -207,7 +207,7 @@ def make_env_all_params(rank, add_monitor, args):
         env = gym.make(args['env'])
         env = ProcessFrame84(env, crop=False)
         env = FrameStack(env, 4)
-       # env = DeepmindLabMaze(env, args["env"], args['nsteps_per_seg'])
+        env = DeepmindLabMaze(env, args["env"], args['nsteps_per_seg'])
     elif args["env_kind"] == 'atari':
         env = gym.make(args['env'])
         assert 'NoFrameskip' in env.spec.id

@@ -211,12 +211,17 @@ class PpoOptimizer(object):
             #done_mask = pseudo_dones == -1
             #no_grad_mask = done_mask.astype(int)
             #grad_mask = 1 - done_mask.astype(int)
-            #no_grad_mask = tf.cast(no_grad_mask, x.dtype)
+            #sh = np.shape(x)
+            #broadcast_shape = (sh[0], sh[1]) + sh[2:]
+            #print("mask shape: {}".format(broadcast_shape))
+            #for i in range(len(broadcast_shape) - 2):
+            #    no_grad_mask = tf.expand_dims(no_grad_mask, -1)
+            #    grad_mask = tf.expand_dims(grad_mask, -1)
+            #no_grad_mask =tf.cast(no_grad_mask, x.dtype)
             #grad_mask = tf.cast(grad_mask, x.dtype)
-            #no_grad_mask = 
-            #result = tf.placeholder(x.dtype, shape=(sh[0], sh[1]) + sh[2:])
-            #result = tf.stop_gradient(tf.multiply(tf.cast(no_grad_mask, x.dtype), x)) + tf.multiply(tf.cast(grad_mask, x.dtype), x)
-            #print(tf.shape(result))
+            #result = tf.placeholder(x.dtype, shape=broadcast_shape)
+            #result = tf.stop_gradient(tf.multiply(no_grad_mask, x)) + tf.multiply(grad_mask, x)
+            #print("Result size: {}".format(result.shape))
             #return result
             return x
 
@@ -225,8 +230,9 @@ class PpoOptimizer(object):
                 return x
             sh = x.shape
             return x.reshape((sh[0] * self.nsegs_per_env, self.nsteps_per_seg) + sh[2:])
-
+        new_count = np.count_nonzero(self.rollout.buf_news)
         print(self.rollout.buf_news)
+        print(new_count)
         ph_buf = [
             (self.stochpol.ph_ac, mask(resh(self.rollout.buf_acs))),
             (self.ph_rews, mask(resh(self.rollout.buf_rews))),
@@ -251,6 +257,8 @@ class PpoOptimizer(object):
             for start in range(0, self.nenvs * self.nsegs_per_env, envsperbatch):
                 end = start + envsperbatch
                 mbenvinds = envinds[start:end]
+                #mbenvinds = tf.convert_to_tensor(mbenvinds)
+                #fd = {ph: buf[mbenvinds] if type(buf) is np.ndarray else buf.eval()[mbenvinds] for (ph, buf) in ph_buf}
                 fd = {ph: buf[mbenvinds] for (ph, buf) in ph_buf}
                 fd.update({self.ph_lr: self.lr, self.ph_cliprange: self.cliprange})
                 if self.lstm:
