@@ -24,7 +24,7 @@ class PpoOptimizer(object):
                  nminibatches,
                  normrew, normadv, use_news, ext_coeff, int_coeff,
                  nsteps_per_seg, nsegs_per_env, dynamics, exp_name, env_name, video_log_freq, model_save_freq,
-                 use_apples, agent_num=None, restore_name=None, multi_envs=None, lstm=False, lstm1_size=512, lstm2_size=0):
+                 use_apples, agent_num=None, restore_name=None, multi_envs=None, lstm=False, lstm1_size=512, lstm2_size=0, depth_pred=0):
         self.dynamics = dynamics
         self.exp_name = exp_name
         self.env_name = env_name
@@ -36,6 +36,7 @@ class PpoOptimizer(object):
         self.lstm = lstm
         self.lstm1_size = lstm1_size
         self.lstm2_size = lstm2_size
+        self.depth_pred = depth_pred
         with tf.variable_scope(scope):
             self.use_recorder = True
             self.n_updates = 0
@@ -241,9 +242,9 @@ class PpoOptimizer(object):
             (self.stochpol.ph_ob, mask(resh(self.rollout.buf_obs))),
             (self.ph_ret, mask(resh(self.buf_rets))),
             (self.ph_adv, mask(resh(self.buf_advs))),
-			(self.stochpol.ph_vel, mask(resh(self.rollout.buf_vels))),
-			(self.stochpol.ph_prev_rew, mask(resh(self.rollout.buf_prev_ext_rews))),
-			(self.stochpol.ph_prev_ac, mask(resh(self.rollout.buf_prev_acs))),
+            (self.stochpol.ph_vel, mask(resh(self.rollout.buf_vels))),
+            (self.stochpol.ph_prev_rew, mask(resh(self.rollout.buf_prev_ext_rews))),
+            (self.stochpol.ph_prev_ac, mask(resh(self.rollout.buf_prev_acs))),
         ]
         #print("Buff obs shape: {}".format(self.rollout.buf_obs.shape))
         #print("Buff rew shape: {}".format(self.rollout.buf_rews.shape))

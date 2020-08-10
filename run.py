@@ -89,7 +89,8 @@ class Trainer(object):
                     lstm1_size=hps['lstm1_size'],
                     lstm2_size=hps['lstm2_size'],
                     layernormalize=False,
-                    nl=tf.nn.leaky_relu
+                    nl=tf.nn.leaky_relu,
+                    depth_pred=hps['depth_pred']
                 )
 
             else:
@@ -162,7 +163,8 @@ class Trainer(object):
             multi_envs=hps['multi_train_envs'],
             lstm=hps['lstm'],
             lstm1_size=hps['lstm1_size'],
-            lstm2_size=hps['lstm2_size']
+            lstm2_size=hps['lstm2_size'],
+            depth_pred=hps['depth_pred']
         )
 
         self.agent.to_report['aux'] = tf.reduce_mean(self.feature_extractor.loss)
@@ -204,10 +206,14 @@ class Trainer(object):
 
 def make_env_all_params(rank, add_monitor, args):
     if args["env_kind"] == 'deepmind':
-        env = gym.make(args['env'])
-        env = ProcessFrame84(env, crop=False)
-        env = FrameStack(env, 4)
-        env = DeepmindLabMaze(env, args["env"], args['nsteps_per_seg'])
+        if args["depth_pred"]:
+            env = gym.make(args['env'])
+            env = DeepmindLabMaze(env, args["env"], args['nsteps_per_seg'], depth=True)
+        else:
+            env = gym.make(args['env'])
+            env = ProcessFrame84(env, crop=False)
+            env = FrameStack(env, 4)
+            env = DeepmindLabMaze(env, args["env"], args['nsteps_per_seg'])
     elif args["env_kind"] == 'atari':
         env = gym.make(args['env'])
         assert 'NoFrameskip' in env.spec.id
@@ -329,7 +335,7 @@ if __name__ == '__main__':
     parser.add_argument('--lstm', type=int, default=0)
     parser.add_argument('--lstm1_size', type=int, default=512)
     parser.add_argument('--lstm2_size', type=int, default=0)
-
+    parser.add_argument('--depth_pred', type=int, default=0)
     args = parser.parse_args()
     if not args.restore_model:
         start_experiment(**args.__dict__)

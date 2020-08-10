@@ -18,7 +18,7 @@ def unwrap(env):
         return env
 
 class DeepmindLabMaze(gym.Wrapper):
-    def __init__(self, env, name, episode_length):
+    def __init__(self, env, name, episode_length, depth=False):
         gym.Wrapper.__init__(self, env)
         self.name = name
         self.step_count = 0
@@ -28,11 +28,16 @@ class DeepmindLabMaze(gym.Wrapper):
         self.episode_length = episode_length
         self.last_obs = None
         self.info = None
+        self.depth = False
         #self.visited = [[False for i in range(15)]for j in range(15)]
         #self.covered = 0
 
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
+        if self.depth:
+            depth_obs = obs[:,:,3]
+            obs = obs[:,:,0:3]
+            info.update({'depth': depth_obs})
         if reward == 10:
             self.found = 1
         if done:
@@ -108,6 +113,7 @@ class ProcessFrame84(gym.ObservationWrapper):
         self.crop = crop
         super(ProcessFrame84, self).__init__(env)
         self.observation_space = gym.spaces.Box(low=0, high=255, shape=(84, 84, 1), dtype=np.uint8)
+        self.depth = depth
 
     def observation(self, obs):
         return ProcessFrame84.process(obs, crop=self.crop)

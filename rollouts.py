@@ -37,13 +37,14 @@ class Rollout(object):
         self.buf_vpreds = np.empty((nenvs, self.nsteps), np.float32)
         self.buf_nlps = np.empty((nenvs, self.nsteps), np.float32)
         self.buf_rews = np.empty((nenvs, self.nsteps), np.float32)
-		self.buf_vels = np.empty((nenvs, self.nsteps, 6), np.float32)
+        self.buf_vels = np.empty((nenvs, self.nsteps, 6), np.float32)
         self.buf_ext_rews = np.empty((nenvs, self.nsteps), np.float32)
-		self.buf_prev_ext_rews = np.empty((nenvs, self.nsteps), np.float32)
+        self.buf_prev_ext_rews = np.empty((nenvs, self.nsteps), np.float32)
         self.buf_acs = np.empty((nenvs, self.nsteps, *self.ac_space.shape), self.ac_space.dtype)
+        self.buf_prev_acs = np.empty((nenvs, self.nsteps, *self.ac_space.shape), self.ac_space.dtype)
         self.buf_obs = np.empty((nenvs, self.nsteps, *self.ob_space.shape), self.ob_space.dtype)
         self.buf_obs_last = np.empty((nenvs, self.nsegs_per_env, *self.ob_space.shape), np.float32)
-
+        self.num_actions = self.ac_space.shape[0]
         self.buf_news = np.zeros((nenvs, self.nsteps), np.float32)
         self.buf_new_last = self.buf_news[:, 0, ...].copy()
         self.buf_vpred_last = self.buf_vpreds[:, 0, ...].copy()
@@ -115,21 +116,21 @@ class Rollout(object):
                     prevrews = [x if x is not None else 0 for x in prevrews]
                 else:
                     prevrews = [x if x is not None and x >= 10 else 0 for x in prevrews]
-			else:
-				prevrews = np.zeros(self.nenvs)
+            else:
+                prevrews = np.zeros(self.nenvs)
             #print(prevrews)
-			vels = []
+            vels = []
             for info in infos:
-                print("info: {}".format(info))
+                #print("info: {}".format(info))
                 epinfo = info.get('episode', {})
                 mzepinfo = info.get('mz_episode', {})
                 retroepinfo = info.get('retro_episode', {})
                 epinfo.update(mzepinfo)
                 epinfo.update(retroepinfo)
-				if 'vel_trans' in info:
-					step_vel = np.array([info['vel_trans'], info['vel_rot']]).flatten()
-					vels.append(step_vel)
-				
+                if 'vel_trans' in info:
+                    step_vel = np.array([info['vel_trans'], info['vel_rot']]).flatten()
+                    vels.append(step_vel)
+                
                 if epinfo:
                     #print("epinfo: {}".format(epinfo))
                     if "n_states_visited" in info:
@@ -145,15 +146,16 @@ class Rollout(object):
                     if 'found' in info:
                         epinfo['found'] = info['found']
                         #print("updated found")
-				
+                
                     self.ep_infos_new.append((self.step_count, epinfo))
-
-
+            #print(vels)
+            if len(vels) == 0:
+                vels = np.zeros((self.lump_stride, 6), np.float32)
             sli = slice(l * self.lump_stride, (l + 1) * self.lump_stride)
-			if t > 0:
-				prev_acs = self.buf_acs[sli, t-1]
-			else:
-				prev_acs = np.zeros(self.lump_stride)
+            if t > 0:
+                prev_acs = self.buf_acs[sli, t-1]
+            else:
+                prev_acs = np.zeros(self.lump_stride)
             acs, vpreds, nlps = self.policy.get_ac_value_nlp(obs, vels, prev_acs, prevrews)
             self.env_step(l, acs)
 
@@ -164,9 +166,9 @@ class Rollout(object):
             self.buf_vpreds[sli, t] = vpreds
             self.buf_nlps[sli, t] = nlps
             self.buf_acs[sli, t] = acs
-			self.buf_prev_acs[sli, t] = prev_acs
-			self.buf_vels[sli, t] = vels
-			self.buf_prev_ext_rews[sli, t] = prevrews
+            self.buf_prev_acs[sli, t] = prev_acs
+            self.buf_vels[sli, t] = vels
+            self.buf_prev_ext_rews[sli, t] = prevrews
             if t > 0:
                 self.buf_ext_rews[sli, t - 1] = prevrews
             # if t > 0:
@@ -183,14 +185,21 @@ class Rollout(object):
         if s == self.nsteps_per_seg - 1:
             for l in range(self.nlumps):
                 sli = slice(l * self.lump_stride, (l + 1) * self.lump_stride)
-                nextobs, ext_rews, nextnews, _ = self.env_get(l)
+                nextobs, ext_rews, nextnews, newinfos = self.env_get(l)
                 if ext_rews is not None:
                     ext_rews = [x if x is not None else 0 for x in ext_rews]
                 self.buf_obs_last[sli, t // self.nsteps_per_seg] = nextobs
                 if t == self.nsteps - 1:
                     self.buf_new_last[sli] = nextnews
                     self.buf_ext_rews[sli, t] = ext_rews
-                    _, self.buf_vpred_last[sli], _ = self.policy.get_ac_value_nlp(nextobs)
+                    newvels = []
+                    for vel_info in newinfos:
+                        print(vel_info)
+                        if 'vel_trans' in vel_info:
+                            newvels.append(np.array(vel_info['vel_trans'], vel_info['vel_rot']).flatten())   
+                    if len(newvels) == 0:
+                        newvels = np.zeros((self.lump_stride, 6), np.float32)  
+                    _, self.buf_vpred_last[sli], _ = self.policy.get_ac_value_nlp(nextobs, newvels, acs, ext_rews)
                     # dyn_logp = self.policy.call_reward(self.prev_feat[l], last_pol_feat, prev_acs)
                     # dyn_logp = dyn_logp.reshape(-1, )
                     # int_rew = dyn_logp
