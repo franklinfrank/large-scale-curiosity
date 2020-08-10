@@ -21,12 +21,13 @@ class LSTMPolicy(object):
             self.ob_space = ob_space
             self.ac_space = ac_space
             self.ac_pdtype = make_pdtype(ac_space)
-            self.num_actions = ac_space.shape[0]
+            print(ac_space.shape)
+            self.num_actions = 4
             self.ph_ob = tf.placeholder(dtype=tf.int32,
                                         shape=(None, None) + ob_space.shape, name='ob')
             self.ph_ac = self.ac_pdtype.sample_placeholder([None, None], name='ac')
             self.ph_vel = tf.placeholder(dtype=tf.float32, shape=(None, None, 6), name='prev_vel')
-            self.ph_prev_ac = tf.placeholder(dtype=tf.float32, shape=(None, None), name='prev_ac')
+            self.ph_prev_ac = tf.placeholder(dtype=tf.int32, shape=(None, None), name='prev_ac')
             self.ph_prev_rew = tf.placeholder(dtype=tf.float32, shape=(None, None), name='prev_rew')
             self.pd = self.vpred = None
             self.hidsize = hidsize
@@ -60,7 +61,7 @@ class LSTMPolicy(object):
                 x = tf.concat([self.lstm_features, prev_rews], -1)
                 x, self.c_out_1, self.h_out_1 = lstm(self.lstm1_size)(x, initial_state=init_1)
                 prev_acs = tf.one_hot(self.ph_prev_ac, depth=self.num_actions)
-                x = tf.concat([x, prev_acs], -1)
+                x = tf.concat([x, tf.cast(prev_acs, tf.float32)], -1)
                 x = tf.concat([x, self.ph_vel], -1)
                 if self.lstm2_size:
                     x, self.c_out_2, self.h_out_2  = lstm(self.lstm2_size)(x, initial_state=init_2)
