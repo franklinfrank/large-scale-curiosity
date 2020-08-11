@@ -47,8 +47,8 @@ class Rollout(object):
         self.buf_obs = np.empty((nenvs, self.nsteps, *self.ob_space.shape), self.ob_space.dtype)
         self.buf_obs_last = np.empty((nenvs, self.nsegs_per_env, *self.ob_space.shape), np.float32)
         #else:
-        self.buf_obs = np.empty((nenvs, self.nsteps, 84, 84, 3), self.ob_space.dtype)
-        self.buf_obs_last = np.empty((nenvs, self.nsegs_per_env, 84, 84, 3), np.float32)
+        #self.buf_obs = np.empty((nenvs, self.nsteps, 84, 84, 3), self.ob_space.dtype)
+        #self.buf_obs_last = np.empty((nenvs, self.nsegs_per_env, 84, 84, 3), np.float32)
         #self.num_actions = self.ac_space.shape[0]
         if self.depth_pred:
             self.buf_depths = np.empty((nenvs, self.nsteps, 64))
@@ -88,7 +88,7 @@ class Rollout(object):
         self.buf_rews[:] = self.reward_fun(int_rew=int_rew, ext_rew=self.buf_ext_rews)
 
     def depth_process(self, rgbds):
-        rbg_list = []
+        rgb_list = []
         d_list = []
         for rgbd in rgbds:
             rgb = rgbd[:,:,0:3]
@@ -102,7 +102,7 @@ class Rollout(object):
             d -= 1
             rgb_list.append(rgb)
             d_list.append(d)
-        return rgb_list, d_list
+        return np.array(rgb_list), np.array(d_list)
 
     def rollout_step(self):
         t = self.step_count % self.nsteps
@@ -117,7 +117,9 @@ class Rollout(object):
         for l in range(self.nlumps):
             obs, prevrews, news, infos = self.env_get(l)
             if self.depth_pred:
-                obs, depths = depth_process(obs)
+                obs, depths = self.depth_process(obs)
+                #print(np.shape(obs))
+                #print(np.shape(depths))
                 
             if self.lstm:
                 for idx in range(len(news)):
@@ -216,7 +218,7 @@ class Rollout(object):
                 sli = slice(l * self.lump_stride, (l + 1) * self.lump_stride)
                 nextobs, ext_rews, nextnews, newinfos = self.env_get(l)
                 if self.depth_pred:
-                    nextobs, nextdepths = depth_process(nextobs)
+                    nextobs, nextdepths = self.depth_process(nextobs)
                 if ext_rews is not None:
                     ext_rews = [x if x is not None else 0 for x in ext_rews]
                 self.buf_obs_last[sli, t // self.nsteps_per_seg] = nextobs

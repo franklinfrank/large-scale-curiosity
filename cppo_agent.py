@@ -19,7 +19,7 @@ getsess = tf.get_default_session
 class PpoOptimizer(object):
     envs = None
 
-    def __init__(self, *, scope, ob_space, ac_space, stochpol,
+    def __init__(self, *, scope, ob_space, env_ob_space,  ac_space, stochpol,
                  ent_coef, gamma, lam, nepochs, lr, cliprange,
                  nminibatches,
                  normrew, normadv, use_news, ext_coeff, int_coeff,
@@ -42,6 +42,7 @@ class PpoOptimizer(object):
             self.n_updates = 0
             self.scope = scope
             self.ob_space = ob_space
+            self.env_ob_space = env_ob_space
             self.ac_space = ac_space
             self.stochpol = stochpol
             self.nepochs = nepochs
@@ -139,7 +140,7 @@ class PpoOptimizer(object):
         self.nlump = nlump
         self.lump_stride = nenvs // self.nlump
         self.envs = [
-            VecEnv(env_fns[l * self.lump_stride: (l + 1) * self.lump_stride], spaces=[self.ob_space, self.ac_space]) for
+            VecEnv(env_fns[l * self.lump_stride: (l + 1) * self.lump_stride], spaces=[self.env_ob_space, self.ac_space]) for
             l in range(self.nlump)]
 
         self.rollout = Rollout(ob_space=self.ob_space, ac_space=self.ac_space, nenvs=nenvs,
@@ -152,7 +153,7 @@ class PpoOptimizer(object):
                                record_rollouts=self.use_recorder,
                                dynamics=dynamics, exp_name=self.exp_name, env_name=self.env_name,
                                video_log_freq=self.video_log_freq, model_save_freq=self.model_save_freq,
-                               use_apples=self.use_apples, multi_envs=self.multi_envs, lstm=self.lstm, lstm1_size=self.lstm1_size, lstm2_size=self.lstm2_size)
+                               use_apples=self.use_apples, multi_envs=self.multi_envs, lstm=self.lstm, lstm1_size=self.lstm1_size, lstm2_size=self.lstm2_size, depth_pred=self.depth_pred)
 
         self.buf_advs = np.zeros((nenvs, self.rollout.nsteps), np.float32)
         self.buf_rets = np.zeros((nenvs, self.rollout.nsteps), np.float32)

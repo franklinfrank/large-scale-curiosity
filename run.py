@@ -137,6 +137,7 @@ class Trainer(object):
         self.agent = PpoOptimizer(
             scope='ppo',
             ob_space=self.ob_space,
+            env_ob_space=self.env_ob_space,
             ac_space=self.ac_space,
             stochpol=self.policy,
             use_news=hps['use_news'],
@@ -178,6 +179,7 @@ class Trainer(object):
         import numpy as np
         env = self.make_env(0, add_monitor=False)
         self.ob_space, self.ac_space = env.observation_space, env.action_space
+        self.env_ob_space = env.observation_space
         if self.depth_pred:
             self.ob_space = gym.spaces.Box(0, 255, shape=(84,84,3), dtype=np.uint8)
         self.ob_mean, self.ob_std = random_agent_ob_mean_std(env, depth_pred=self.hps['depth_pred'])
@@ -215,8 +217,8 @@ def make_env_all_params(rank, add_monitor, args):
             env = DeepmindLabMaze(env, args["env"], args['nsteps_per_seg'], depth=True)
         else:
             env = gym.make(args['env'])
-            env = ProcessFrame84(env, crop=False)
-            env = FrameStack(env, 4)
+            #env = ProcessFrame84(env, crop=False)
+            #env = FrameStack(env, 4)
             env = DeepmindLabMaze(env, args["env"], args['nsteps_per_seg'])
     elif args["env_kind"] == 'atari':
         env = gym.make(args['env'])
