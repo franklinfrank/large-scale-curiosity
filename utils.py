@@ -88,7 +88,7 @@ def setup_tensorflow_session():
     return tf.Session(config=tf_config)
 
 
-def random_agent_ob_mean_std(env, nsteps=1000, depth_pred=0):
+def random_agent_ob_mean_std(env, nsteps=10000, depth_pred=0):
     ob = np.asarray(env.reset())
     if depth_pred:
         ob = ob[:,:,0:3]
