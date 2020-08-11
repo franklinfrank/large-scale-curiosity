@@ -88,7 +88,7 @@ def setup_tensorflow_session():
     return tf.Session(config=tf_config)
 
 
-def random_agent_ob_mean_std(env, nsteps=10000):
+def random_agent_ob_mean_std(env, nsteps=1000, depth_pred=0):
     ob = np.asarray(env.reset())
     if MPI.COMM_WORLD.Get_rank() == 0:
         obs = [ob]
@@ -97,6 +97,8 @@ def random_agent_ob_mean_std(env, nsteps=10000):
             ob, _, done, _ = env.step(ac)
             if done:
                 ob = env.reset()
+            if depth_pred:
+                ob = ob[:,:,0:3]
             obs.append(np.asarray(ob))
         mean = np.mean(obs, 0).astype(np.float32)
         std = np.std(obs, 0).mean().astype(np.float32)

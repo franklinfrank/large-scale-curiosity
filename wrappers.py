@@ -28,16 +28,26 @@ class DeepmindLabMaze(gym.Wrapper):
         self.episode_length = episode_length
         self.last_obs = None
         self.info = None
-        self.depth = False
+        self.depth = depth
         #self.visited = [[False for i in range(15)]for j in range(15)]
         #self.covered = 0
 
+    def preprocess(self, rgbd):
+        rgb = rgbd[:,:,0:3]
+        d = rgbd[:,:,3]
+        d = d[16:-16,:] #crop
+        d = d[:,2:-2] #crop
+        d = d[::13,::5] #subsample
+        d = d.flatten()
+        d = np.power(d/255.0,10)
+        d = np.digitize(d,[0,0.05,0.175,0.3,0.425,0.55,0.675,0.8,1.01])
+        d -= 1
+        return rgb, d
+    
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
-        if self.depth:
-            depth_obs = obs[:,:,3]
-            obs = obs[:,:,0:3]
-            info.update({'depth': depth_obs})
+        #if self.depth:
+            #obs, depth = self.preprocess(obs)
         if reward == 10:
             self.found = 1
         if done:
@@ -74,6 +84,7 @@ class DeepmindLabMaze(gym.Wrapper):
         self.found = 0
         print("wrapper env reset")
         obs = self.env.reset()
+        #obs, depth = self.preprocess(obs)
         return obs
 
 class MaxAndSkipEnv(gym.Wrapper):

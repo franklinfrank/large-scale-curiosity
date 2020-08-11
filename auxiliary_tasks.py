@@ -6,7 +6,7 @@ tf.disable_v2_behavior()
 
 class FeatureExtractor(object):
     def __init__(self, policy, features_shared_with_policy, feat_dim=None, layernormalize=None,
-                 scope='feature_extractor', restore_name=None):
+                 scope='feature_extractor', restore_name=None, depth_pred=0):
         self.scope = scope
         self.features_shared_with_policy = features_shared_with_policy
         self.feat_dim = feat_dim

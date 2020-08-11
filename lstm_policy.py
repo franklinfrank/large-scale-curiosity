@@ -1,7 +1,7 @@
 import tensorflow as tf
 from baselines.common.distributions import make_pdtype
 import numpy as np
-import os
+import os 
 
 from utils import getsess, lstm, small_convnet, activ, fc, flatten_two_dims, unflatten_first_dim
 
@@ -21,14 +21,18 @@ class LSTMPolicy(object):
             self.ob_space = ob_space
             self.ac_space = ac_space
             self.ac_pdtype = make_pdtype(ac_space)
-            print(ac_space.shape)
+            #print(ac_space.shape)
             self.num_actions = 4
-            self.ph_ob = tf.placeholder(dtype=tf.int32,
+            if self.depth_pred:
+                self.ph_ob = tf.placeholder(dtype=tf.int32, shape=(None, None, 84, 84, 3), name='ob')
+            else:
+                self.ph_ob = tf.placeholder(dtype=tf.int32,
                                         shape=(None, None) + ob_space.shape, name='ob')
             self.ph_ac = self.ac_pdtype.sample_placeholder([None, None], name='ac')
             self.ph_vel = tf.placeholder(dtype=tf.float32, shape=(None, None, 6), name='prev_vel')
             self.ph_prev_ac = tf.placeholder(dtype=tf.int32, shape=(None, None), name='prev_ac')
             self.ph_prev_rew = tf.placeholder(dtype=tf.float32, shape=(None, None), name='prev_rew')
+            self.ph_depths = tf.placeholder(dtype=tf.int32, shape=(None, None, 64))
             self.pd = self.vpred = None
             self.hidsize = hidsize
             self.feat_dim = feat_dim
@@ -36,6 +40,8 @@ class LSTMPolicy(object):
             pdparamsize = self.ac_pdtype.param_shape()[0]
 
             sh = tf.shape(self.ph_ob)
+            if self.depth_pred:
+                depth_sh = tf.shape(self.true_depths)
             self.lstm_features = self.get_lstm_features(self.ph_ob, reuse=tf.AUTO_REUSE)
             print("Input shape into LSTM layer: {}".format(self.lstm_features.get_shape()))
             self.lstm1_c = np.zeros((batchsize, self.lstm1_size))
@@ -74,6 +80,15 @@ class LSTMPolicy(object):
                 vpred = fc(x, name='value_function_output', units=1, activation=None)
                 print("Vpred shape: {}".format(vpred.get_shape()))
                 pdparam = unflatten_first_dim(pdparam, sh)
+                # Depth prediction
+                dpred = fc(x, name='depth_pred', units=128, activation=None)
+                dpred = [fc(x, name="depth_pred_pixel_{}".format(i), units=8, activation=None) for i in range(64)]
+            true_ds = flatten_two_dims(self.ph_depths)
+            d2 = tf.reshape(dpred, [-1, 64, 8])
+            self.depth_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=d2, labels=true_ds)
+            self.depth_loss = tf.reduce_sum(self.depth_loss, -1)
+            self.depth_loss = tf.reduce_mean(self.depth_loss, -1)
+            
             self.vpred = unflatten_first_dim(vpred, sh)[:, :, 0]
             #self.vpred = vpred
             self.pd = pd = self.ac_pdtype.pdfromflat(pdparam)
@@ -94,6 +109,8 @@ class LSTMPolicy(object):
             tf.add_to_collection('ph_vel', self.ph_vel)
             tf.add_to_collection('ph_prev_ac', self.ph_prev_ac)
             tf.add_to_collection('ph_prev_rew', self.ph_prev_rew)
+            tf.add_to_collection('depth_loss_policy', self.depth_loss)
+            tf.add_to_collection('ph_depths', self.ph_depths)
             if self.lstm2_size > 0:
                 tf.add_to_collection('c_out_2', self.c_out_2)
                 tf.add_to_collection('h_out_2', self.h_out_2)

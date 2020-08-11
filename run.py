@@ -65,6 +65,7 @@ class Trainer(object):
         self.make_env = make_env
         self.hps = hps
         self.envs_per_process = envs_per_process
+        self.depth_pred = hps['depth_pred']
         self.num_timesteps = num_timesteps
         self._set_env_vars()
         if exp_name:
@@ -123,7 +124,7 @@ class Trainer(object):
             self.feature_extractor = self.feature_extractor(policy=self.policy,
                                                             features_shared_with_policy=False,
                                                             feat_dim=512,
-                                                            layernormalize=hps['layernorm'])
+                                                            layernormalize=hps['layernorm'], depth_pred = hps['depth_pred'])
         if dyn:
             self.dynamics = dyn
             self.dynamics.restore()
@@ -174,9 +175,12 @@ class Trainer(object):
         self.agent.to_report['feat_var'] = tf.reduce_mean(tf.nn.moments(self.feature_extractor.features, [0, 1])[1])
 
     def _set_env_vars(self):
+        import numpy as np
         env = self.make_env(0, add_monitor=False)
         self.ob_space, self.ac_space = env.observation_space, env.action_space
-        self.ob_mean, self.ob_std = random_agent_ob_mean_std(env)
+        if self.depth_pred:
+            self.ob_space = gym.spaces.Box(0, 255, shape=(84,84,3), dtype=np.uint8)
+        self.ob_mean, self.ob_std = random_agent_ob_mean_std(env, depth_pred=self.hps['depth_pred'])
         del env
         self.envs = [functools.partial(self.make_env, i) for i in range(self.envs_per_process)]
 

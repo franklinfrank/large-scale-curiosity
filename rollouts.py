@@ -11,7 +11,7 @@ from evaluator import Evaluator
 
 class Rollout(object):
     def __init__(self, ob_space, ac_space, nenvs, nsteps_per_seg, nsegs_per_env, nlumps, envs, policy, int_rew_coeff, ext_rew_coeff, \
-                   record_rollouts, dynamics, exp_name, env_name, video_log_freq, model_save_freq, use_apples, multi_envs=None, lstm=False, lstm1_size=512, lstm2_size=0):
+                   record_rollouts, dynamics, exp_name, env_name, video_log_freq, model_save_freq, use_apples, multi_envs=None, lstm=False, lstm1_size=512, lstm2_size=0, depth_pred=0):
         self.nenvs = nenvs
         self.nsteps_per_seg = nsteps_per_seg
         self.nsegs_per_env = nsegs_per_env
@@ -31,6 +31,7 @@ class Rollout(object):
         self.lstm = lstm
         self.lstm1_size = lstm1_size
         self.lstm2_size = lstm2_size
+        self.depth_pred = depth_pred
 #        self.reward_fun = lambda ext_rew, int_rew: ext_rew_coeff * np.clip(ext_rew, -1., 1.) + int_rew_coeff * int_rew
         self.reward_fun = lambda ext_rew, int_rew: ext_rew_coeff*ext_rew + int_rew_coeff*int_rew
         self.evaluator = Evaluator(env_name, 1, exp_name, policy)
@@ -42,13 +43,19 @@ class Rollout(object):
         self.buf_prev_ext_rews = np.empty((nenvs, self.nsteps), np.float32)
         self.buf_acs = np.empty((nenvs, self.nsteps, *self.ac_space.shape), self.ac_space.dtype)
         self.buf_prev_acs = np.empty((nenvs, self.nsteps, *self.ac_space.shape), self.ac_space.dtype)
+        #if not self.depth_pred:
         self.buf_obs = np.empty((nenvs, self.nsteps, *self.ob_space.shape), self.ob_space.dtype)
         self.buf_obs_last = np.empty((nenvs, self.nsegs_per_env, *self.ob_space.shape), np.float32)
+        #else:
+        self.buf_obs = np.empty((nenvs, self.nsteps, 84, 84, 3), self.ob_space.dtype)
+        self.buf_obs_last = np.empty((nenvs, self.nsegs_per_env, 84, 84, 3), np.float32)
         #self.num_actions = self.ac_space.shape[0]
+        if self.depth_pred:
+            self.buf_depths = np.empty((nenvs, self.nsteps, 64))
         self.buf_news = np.zeros((nenvs, self.nsteps), np.float32)
         self.buf_new_last = self.buf_news[:, 0, ...].copy()
         self.buf_vpred_last = self.buf_vpreds[:, 0, ...].copy()
-
+        self.depth_pred = depth_pred
         self.env_results = [None] * self.nlumps
         # self.prev_feat = [None for _ in range(self.nlumps)]
         # self.prev_acs = [None for _ in range(self.nlumps)]
@@ -80,6 +87,23 @@ class Rollout(object):
                                                acs=self.buf_acs)
         self.buf_rews[:] = self.reward_fun(int_rew=int_rew, ext_rew=self.buf_ext_rews)
 
+    def depth_process(self, rgbds):
+        rbg_list = []
+        d_list = []
+        for rgbd in rgbds:
+            rgb = rgbd[:,:,0:3]
+            d = rgbd[:,:,3]
+            d = d[16:-16,:]
+            d = d[:,2:-2]
+            d = d[::13,::5]
+            d = d.flatten()
+            d = np.power(d/255.0, 10)
+            d = np.digitize(d,[0,0.05,0.175,0.3,0.425,0.55,0.675,0.8,1.01])
+            d -= 1
+            rgb_list.append(rgb)
+            d_list.append(d)
+        return rgb_list, d_list
+
     def rollout_step(self):
         t = self.step_count % self.nsteps
         s = t % self.nsteps_per_seg
@@ -92,6 +116,9 @@ class Rollout(object):
                 self.train_lstm2_h = self.policy.lstm2_h 
         for l in range(self.nlumps):
             obs, prevrews, news, infos = self.env_get(l)
+            if self.depth_pred:
+                obs, depths = depth_process(obs)
+                
             if self.lstm:
                 for idx in range(len(news)):
                     if news[idx]:
@@ -169,6 +196,8 @@ class Rollout(object):
             self.buf_prev_acs[sli, t] = prev_acs
             self.buf_vels[sli, t] = vels
             self.buf_prev_ext_rews[sli, t] = prevrews
+            if self.depth_pred:
+                self.buf_depths[sli, t] = depths
             if t > 0:
                 self.buf_ext_rews[sli, t - 1] = prevrews
             # if t > 0:
@@ -186,6 +215,8 @@ class Rollout(object):
             for l in range(self.nlumps):
                 sli = slice(l * self.lump_stride, (l + 1) * self.lump_stride)
                 nextobs, ext_rews, nextnews, newinfos = self.env_get(l)
+                if self.depth_pred:
+                    nextobs, nextdepths = depth_process(nextobs)
                 if ext_rews is not None:
                     ext_rews = [x if x is not None else 0 for x in ext_rews]
                 self.buf_obs_last[sli, t // self.nsteps_per_seg] = nextobs

@@ -24,7 +24,7 @@ class PpoOptimizer(object):
                  nminibatches,
                  normrew, normadv, use_news, ext_coeff, int_coeff,
                  nsteps_per_seg, nsegs_per_env, dynamics, exp_name, env_name, video_log_freq, model_save_freq,
-                 use_apples, agent_num=None, restore_name=None, multi_envs=None, lstm=False, lstm1_size=512, lstm2_size=0, depth_pred=0):
+                 use_apples, agent_num=None, restore_name=None, multi_envs=None, lstm=False, lstm1_size=512, lstm2_size=0, depth_pred=0, beta_d=1):
         self.dynamics = dynamics
         self.exp_name = exp_name
         self.env_name = env_name
@@ -58,6 +58,7 @@ class PpoOptimizer(object):
             self.ext_coeff = ext_coeff
             self.int_coeff = int_coeff
             self.ent_coeff = ent_coef
+            self.beta_d = beta_d
             if self.agent_num is None:
                 self.ph_adv = tf.placeholder(tf.float32, [None, None], name='adv')
                 self.ph_ret = tf.placeholder(tf.float32, [None, None], name='ret')
@@ -77,12 +78,18 @@ class PpoOptimizer(object):
                 pg_loss_surr = tf.maximum(pg_losses1, pg_losses2, name='loss_surr')
                 pg_loss = tf.reduce_mean(pg_loss_surr, name='pg_loss')
                 ent_loss = (- ent_coef) * entropy
+                if self.depth_pred:
+                    depth_loss = self.stochpol.depth_loss * beta_d
                 approxkl = .5 * tf.reduce_mean(tf.square(neglogpac - self.ph_oldnlp), name='approxkl')
                 clipfrac = tf.reduce_mean(tf.to_float(tf.abs(pg_losses2 - pg_loss_surr) > 1e-6), name='clipfrac')
 
                 self.total_loss = pg_loss + ent_loss + vf_loss
+                if self.depth_pred:
+                    self.total_loss = self.total_loss + depth_loss
                 self.to_report = {'tot': self.total_loss, 'pg': pg_loss, 'vf': vf_loss, 'ent': entropy,
                               'approxkl': approxkl, 'clipfrac': clipfrac}
+                if self.depth_pred:
+                    self.to_report.update({'depth_loss': depth_loss})
                 tf.add_to_collection('adv', self.ph_adv)
                 tf.add_to_collection('ret', self.ph_ret)
                 tf.add_to_collection('rews', self.ph_rews)
@@ -96,6 +103,8 @@ class PpoOptimizer(object):
                 tf.add_to_collection('pg_losses2', pg_losses2)
                 tf.add_to_collection('loss_surr', pg_loss_surr)
                 tf.add_to_collection('pg_loss', pg_loss)
+                if self.depth_pred:
+                    tf.add_to_collection('depth_loss', depth_loss)
                 tf.add_to_collection('approxkl', approxkl)
                 tf.add_to_collection('clipfrac', clipfrac)
             else:
@@ -246,6 +255,8 @@ class PpoOptimizer(object):
             (self.stochpol.ph_prev_rew, mask(resh(self.rollout.buf_prev_ext_rews))),
             (self.stochpol.ph_prev_ac, mask(resh(self.rollout.buf_prev_acs))),
         ]
+        if self.depth_pred:
+            ph_buf.append((self.stochpol.ph_depths, mask(resh(self.rollout.buf_depths))))
         #print("Buff obs shape: {}".format(self.rollout.buf_obs.shape))
         #print("Buff rew shape: {}".format(self.rollout.buf_rews.shape))
         #print("Buff nlps shape: {}".format(self.rollout.buf_nlps.shape))
