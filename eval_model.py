@@ -20,8 +20,8 @@ def format_obs(obs_name, obs):
 def start_eval(**args):
         print("Starting model evaluation")
         env = gym.make(args['env'])
-        env = ProcessFrame84(env, crop=False)
-        env = FrameStack(env, 4)
+        #env = ProcessFrame84(env, crop=False)
+        #env = FrameStack(env, 4)
         num_episodes = args['num_episodes']
         exp_name = args['exp_name']
         save_name = args['save_name']
@@ -29,6 +29,7 @@ def start_eval(**args):
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
         num_steps = args['num_steps']
+        aux_input = args['aux_input']
         #process_seed = args["seed"] + 1000 * MPI.COMM_WORLD.Get_rank()
         #process_seed = hash_seed(process_seed, max_bytes=4)
         #set_global_seeds(process_seed)
@@ -59,6 +60,10 @@ def start_eval(**args):
                         print(h_out_2)
                         c_in_2 = tf.get_collection('c_in_2')[0]
                         h_in_2 = tf.get_collection('h_in_2')[0]
+                if aux_input:
+                    ph_vel = tf.get_collection('ph_vel')[0]
+                    ph_prev_ac = tf.get_collection('ph_prev_ac')[0]
+                    ph_prev_rew = tf.get_collection('ph_prev_rew')[0]
                 print("Model restored")
                 env_name = args['env']
                 env_type = env_name.split('-')[0][-3:]
@@ -78,7 +83,8 @@ def start_eval(**args):
                         trajectory_path = os.path.join("trajectories", trajectory_file)
                         ob = env.reset()
                         ob = np.array(ob)
-                        ob = ob.reshape((1,84,84,4))
+                        #ob = ob.reshape((1,84,84,4))
+                        ob = ob.reshape((1,84,84,3))
                         eprews = []
                         ep_images = []
                         if args['lstm']:
@@ -87,13 +93,21 @@ def start_eval(**args):
                             if args['lstm2_size']:
                                 lstm2_c = np.zeros((1, args['lstm2_size']))
                                 lstm2_h = np.zeros((1, args['lstm2_size']))
+                        success = 0
                         for step in range(num_steps):
+                                #print(step)
                                 if step == 0:
                                         ep_images.append(env.unwrapped._last_observation)
+                                        if aux_input:
+                                            prev_ac = np.zeros((1,1))
+                                            vels = np.zeros((1,1,6))
+                                            prev_rew = np.zeros((1,1))
                                 if args['lstm']:
                                     feed_dict = {ph_ob: ob[:, None], c_in_1: lstm1_c, h_in_1: lstm1_h}
                                     if args['lstm2_size'] > 0:
                                         feed_dict.update({c_in_2: lstm2_c, h_in_2: lstm2_h})
+                                        if aux_input:
+                                            feed_dict.update({ph_prev_rew:prev_rew, ph_vel: vels, ph_prev_ac: prev_ac}) 
                                         action, vp, nlp, lstm1_c, lstm1_h, lstm2_c, lstm2_h = sess.run([a_samp, vpred, nlp_samp, c_out_1, h_out_1, \
                                             c_out_2, h_out_2], feed_dict=feed_dict)
                                         
@@ -105,11 +119,24 @@ def start_eval(**args):
                                     action, vp, nlp = sess.run([a_samp, vpred, nlp_samp], 
                                                 feed_dict={ph_ob: ob[:,None]})
                                 action = action[:,0]
+                                #print(action)
                                 ob, rew, done, info = env.step(action[0])
-                                if done:
-                                    print("Env done")
-                                pos_trans, pos_rot, vel_trans, vel_rot = env.unwrapped.get_pos_and_vel()
-                                ob = np.array(ob).reshape((1,84,84,4))
+                                #print(rew)
+                                #print(ob)
+                                #print(info)
+                                if not done:
+                                    pos_trans, pos_rot, vel_trans, vel_rot = env.unwrapped.get_pos_and_vel()
+                                if aux_input:
+                                    #info_vel_trans = info['vel_trans']
+                                    #info_vel_rot = info['vel_rot']
+                                    #info_vels = [[np.append(info_vel_trans, info_vel_rot)]]
+                                    #print("Info vels: {}".format(info_vels))
+                                    vels = [[np.append(vel_trans, vel_rot)]]
+                                    #print("Func vels: {}".format(vels))
+                                    prev_rew = [[rew]]
+                                    prev_ac = [action]
+                                ob = np.array(ob).reshape((1,84,84,3))
+                                #ob = np.array(ob).reshape((1,84,84,4))
                                 ep_images.append(env.unwrapped._last_observation)
                                 with open(trajectory_path, 'a') as f:
                                         f.write(format_obs("DEBUG.POS.TRANS", pos_trans))
@@ -118,18 +145,22 @@ def start_eval(**args):
                                         f.write(format_obs("VEL.ROT", vel_rot))
                                 if rew is None:
                                         eprews.append(0)
-                                elif rew == 10:
+                                elif rew >= 10:
                                         print("Reached goal on step {}".format(step))
                                         eprews.append(rew)
-                                        success_count += 1
-                                        #env.reset()
+                                        success = 1
                                         break
+                                        #ob = env.reset()
+                                        #ob = np.array(ob)
+                                        #ob = ob.reshape((1,84,84,4))
+                                        #ob = ob.reshape((1,84,84,3))
                                 else:
                                         eprews.append(rew)
                         for j in range(len(ep_images)):
                                 image_file = os.path.join("images", save_name + "_eval_on_" + rew_type + "_itr" + str(i) + "_{}".format(j) + ".png")
                                 cv2.imwrite(image_file, ep_images[j])                           
                         print("Total reward is {}".format(sum(eprews)))
+                        success_count += success
                         total_rew += sum(eprews)
                 print("Success rate: {}".format(success_count * 1.0 / num_episodes))
                 print("Avg reward: {}".format(total_rew * 1.0 / num_episodes))
@@ -143,7 +174,6 @@ def start_eval(**args):
 if __name__ == "__main__":
         import argparse
         import os 
-        os.environ["CUDA_VISIBLE_DEVICES"] = "6" 
         parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         parser.add_argument('--exp_name', type=str, default='')
         parser.add_argument('--save_name', type=str,default='')
@@ -154,5 +184,6 @@ if __name__ == "__main__":
         parser.add_argument('--lstm', type=int, default=0)
         parser.add_argument('--lstm1_size', type=int, default=512)
         parser.add_argument('--lstm2_size', type=int, default=0)
+        parser.add_argument('--aux_input', type=int, default=0)
         args = parser.parse_args()
         start_eval(**args.__dict__)

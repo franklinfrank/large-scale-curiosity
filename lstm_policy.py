@@ -22,17 +22,18 @@ class LSTMPolicy(object):
             self.ac_space = ac_space
             self.ac_pdtype = make_pdtype(ac_space)
             #print(ac_space.shape)
-            self.num_actions = 4
+            self.num_actions = ac_space.n
             #if self.depth_pred:
              #   self.ph_ob = tf.placeholder(dtype=tf.int32, shape=(None, None, 84, 84, 3), name='ob')
             self.ph_ob = tf.placeholder(dtype=tf.int32,
                                         shape=(None, None) + ob_space.shape, name='ob')
             self.ph_ac = self.ac_pdtype.sample_placeholder([None, None], name='ac')
-            self.ph_vel = tf.placeholder(dtype=tf.float32, shape=(None, None, 6), name='prev_vel')
-            self.ph_prev_ac = tf.placeholder(dtype=tf.int32, shape=(None, None), name='prev_ac')
-            self.ph_prev_rew = tf.placeholder(dtype=tf.float32, shape=(None, None), name='prev_rew')
             if self.depth_pred:
                 self.ph_depths = tf.placeholder(dtype=tf.int32, shape=(None, None, 64))
+                self.ph_vel = tf.placeholder(dtype=tf.float32, shape=(None, None, 6), name='prev_vel')
+                self.ph_prev_ac = tf.placeholder(dtype=tf.int32, shape=(None, None), name='prev_ac')
+                self.ph_prev_rew = tf.placeholder(dtype=tf.float32, shape=(None, None), name='prev_rew')
+
             self.pd = self.vpred = None
             self.hidsize = hidsize
             self.feat_dim = feat_dim
@@ -63,13 +64,18 @@ class LSTMPolicy(object):
                 init_1 = tf.contrib.rnn.LSTMStateTuple(self.c_in_1, self.h_in_1)
                 if self.lstm2_size:
                     init_2 = tf.contrib.rnn.LSTMStateTuple(self.c_in_2, self.h_in_2)
-                prev_rews = tf.expand_dims(self.ph_prev_rew, -1)
-                x = tf.concat([self.lstm_features, prev_rews], -1)
+                if self.depth_pred:
+                    prev_rews = tf.expand_dims(self.ph_prev_rew, -1)
+                    x = tf.concat([self.lstm_features, prev_rews], -1)
+                else:
+                    x = self.lstm_features
                 x, self.c_out_1, self.h_out_1 = lstm(self.lstm1_size)(x, initial_state=init_1)
-                prev_acs = tf.one_hot(self.ph_prev_ac, depth=self.num_actions)
-                x = tf.concat([x, tf.cast(prev_acs, tf.float32)], -1)
-                x = tf.concat([x, self.ph_vel], -1)
                 if self.lstm2_size:
+                    if self.depth_pred:
+                        prev_acs = tf.one_hot(self.ph_prev_ac, depth=self.num_actions)
+                        x = tf.concat([x, tf.cast(prev_acs, tf.float32)], -1)
+                        x = tf.concat([x, self.ph_vel], -1)
+
                     x, self.c_out_2, self.h_out_2  = lstm(self.lstm2_size)(x, initial_state=init_2)
                 #x = lstm(256)(x)
                 #x = lstm(hidsize)(self.lstm_features)
@@ -81,13 +87,16 @@ class LSTMPolicy(object):
                 print("Vpred shape: {}".format(vpred.get_shape()))
                 pdparam = unflatten_first_dim(pdparam, sh)
                 # Depth prediction
-                dpred = fc(x, name='depth_pred', units=128, activation=None)
-                dpred = [fc(x, name="depth_pred_pixel_{}".format(i), units=8, activation=None) for i in range(64)]
-            true_ds = flatten_two_dims(self.ph_depths)
-            d2 = tf.reshape(dpred, [-1, 64, 8])
-            self.depth_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=d2, labels=true_ds)
-            self.depth_loss = tf.reduce_mean(self.depth_loss, -1)
-            self.depth_loss = tf.reduce_mean(self.depth_loss, -1)
+                if self.depth_pred:
+                    dpred = fc(x, name='depth_pred', units=128, activation=None)
+                    dpred = [fc(dpred, name="depth_pred_pixel_{}".format(i), units=8, activation=None) for i in range(64)]
+            if self.depth_pred:
+                true_ds = flatten_two_dims(self.ph_depths)
+                #d2 = tf.reshape(dpred, [-1, 64, 8])
+                d2 = tf.transpose(dpred, [1,0,2])
+                self.depth_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=d2, labels=true_ds)
+                self.depth_loss = tf.reduce_mean(self.depth_loss, -1)
+                self.depth_loss = tf.reduce_mean(self.depth_loss, -1)
             
             self.vpred = unflatten_first_dim(vpred, sh)[:, :, 0]
             #self.vpred = vpred
@@ -106,11 +115,12 @@ class LSTMPolicy(object):
             tf.add_to_collection('h_out_1', self.h_out_1)
             tf.add_to_collection('c_in_1', self.c_in_1)
             tf.add_to_collection('h_in_1', self.h_in_1)
-            tf.add_to_collection('ph_vel', self.ph_vel)
-            tf.add_to_collection('ph_prev_ac', self.ph_prev_ac)
-            tf.add_to_collection('ph_prev_rew', self.ph_prev_rew)
-            tf.add_to_collection('depth_loss_policy', self.depth_loss)
-            tf.add_to_collection('ph_depths', self.ph_depths)
+            if self.depth_pred:
+                tf.add_to_collection('ph_vel', self.ph_vel)
+                tf.add_to_collection('ph_prev_ac', self.ph_prev_ac)
+                tf.add_to_collection('ph_prev_rew', self.ph_prev_rew)
+                tf.add_to_collection('depth_loss_policy', self.depth_loss)
+                tf.add_to_collection('ph_depths', self.ph_depths)
             if self.lstm2_size > 0:
                 tf.add_to_collection('c_out_2', self.c_out_2)
                 tf.add_to_collection('h_out_2', self.h_out_2)
@@ -146,7 +156,7 @@ class LSTMPolicy(object):
         x = tf.reshape(x, [-1, sh[1], self.feat_dim])
         return x
 
-    def get_ac_value_nlp(self, ob, vel, prev_ac, prev_rew):
+    def get_ac_value_nlp_extra_input(self, ob, vel, prev_ac, prev_rew):
         feed_ac = np.expand_dims(np.array(prev_ac), axis=1)
         #feed_ac = prev_ac
         feed_vel = np.expand_dims(np.array(vel), axis=1)
@@ -169,6 +179,25 @@ class LSTMPolicy(object):
         #print("LSTM2 c: {}".format(self.lstm2_c))
         #print("LSTM2 h: {}".format(self.lstm2_h))
         return a[:, 0], vpred[:, 0], nlp[:, 0]
+
+    def get_ac_value_nlp(self, ob):
+        feed_dict = {self.ph_ob: ob[:, None], self.c_in_1: self.lstm1_c, self.h_in_1: self.lstm1_h}
+        if self.lstm2_size > 0:
+            feed_dict.update({self.c_in_2: self.lstm2_c, self.h_in_2: self.lstm2_h})
+        if self.lstm2_size > 0:  
+            a, vpred, nlp, self.lstm1_c, self.lstm1_h, self.lstm2_c, self.lstm2_h = \
+                getsess().run([self.a_samp, self.vpred, self.nlp_samp, self.c_out_1, self.h_out_1, \
+                                self.c_out_2, self.h_out_2],
+                                feed_dict=feed_dict)
+        else:
+            a, vpred, nlp, self.lstm1_c, self.lstm1_h = \
+                getsess().run([self.a_samp, self.vpred, self.nlp_samp, self.c_out_1, self.h_out_1], feed_dict=feed_dict)
+        #print("LSTM1 c: {}".format(self.lstm1_c))
+        #print("LSTM1 h: {}".format(self.lstm1_h))
+        #print("LSTM2 c: {}".format(self.lstm2_c))
+        #print("LSTM2 h: {}".format(self.lstm2_h))
+        return a[:, 0], vpred[:, 0], nlp[:, 0]
+    
 
     def get_ac_value_nlp_eval(self, ob):
         feed_dict = {self.ph_ob: ((ob,),), self.c_in_1: self.lstm1_c_eval, self.h_in_1: self.lstm1_h_eval}

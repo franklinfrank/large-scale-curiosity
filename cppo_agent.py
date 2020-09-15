@@ -24,7 +24,7 @@ class PpoOptimizer(object):
                  nminibatches,
                  normrew, normadv, use_news, ext_coeff, int_coeff,
                  nsteps_per_seg, nsegs_per_env, dynamics, exp_name, env_name, video_log_freq, model_save_freq,
-                 use_apples, agent_num=None, restore_name=None, multi_envs=None, lstm=False, lstm1_size=512, lstm2_size=0, depth_pred=0, beta_d=.1):
+                 use_apples, agent_num=None, restore_name=None, multi_envs=None, lstm=False, lstm1_size=512, lstm2_size=0, depth_pred=0, beta_d=.1, early_stop=0):
         self.dynamics = dynamics
         self.exp_name = exp_name
         self.env_name = env_name
@@ -37,6 +37,7 @@ class PpoOptimizer(object):
         self.lstm1_size = lstm1_size
         self.lstm2_size = lstm2_size
         self.depth_pred = depth_pred
+        self.early_stop = early_stop
         with tf.variable_scope(scope):
             self.use_recorder = True
             self.n_updates = 0
@@ -87,6 +88,8 @@ class PpoOptimizer(object):
                 self.total_loss = pg_loss + ent_loss + vf_loss
                 if self.depth_pred:
                     self.total_loss = self.total_loss + depth_loss
+                    #self.total_loss = depth_loss
+                    #print("adding depth loss to total loss for optimization")
                 self.to_report = {'tot': self.total_loss, 'pg': pg_loss, 'vf': vf_loss, 'ent': entropy,
                               'approxkl': approxkl, 'clipfrac': clipfrac}
                 if self.depth_pred:
@@ -153,7 +156,8 @@ class PpoOptimizer(object):
                                record_rollouts=self.use_recorder,
                                dynamics=dynamics, exp_name=self.exp_name, env_name=self.env_name,
                                video_log_freq=self.video_log_freq, model_save_freq=self.model_save_freq,
-                               use_apples=self.use_apples, multi_envs=self.multi_envs, lstm=self.lstm, lstm1_size=self.lstm1_size, lstm2_size=self.lstm2_size, depth_pred=self.depth_pred)
+                               use_apples=self.use_apples, multi_envs=self.multi_envs, lstm=self.lstm, lstm1_size=self.lstm1_size, lstm2_size=self.lstm2_size, depth_pred=self.depth_pred, 
+                               early_stop = self.early_stop)
 
         self.buf_advs = np.zeros((nenvs, self.rollout.nsteps), np.float32)
         self.buf_rets = np.zeros((nenvs, self.rollout.nsteps), np.float32)
@@ -216,31 +220,33 @@ class PpoOptimizer(object):
         envinds = np.arange(self.nenvs * self.nsegs_per_env)
 
         def mask(x):
-            #print("x shape: {}".format(np.shape(x)))
-            #pseudo_dones = self.rollout.buf_news
-            #print("mask shape: {}".format(np.shape(pseudo_dones)))
-            #done_mask = pseudo_dones == -1
-            #no_grad_mask = done_mask.astype(int)
-            #grad_mask = 1 - done_mask.astype(int)
-            #sh = np.shape(x)
-            #broadcast_shape = (sh[0], sh[1]) + sh[2:]
-            #print("mask shape: {}".format(broadcast_shape))
-            #for i in range(len(broadcast_shape) - 2):
-            #    no_grad_mask = tf.expand_dims(no_grad_mask, -1)
-            #    grad_mask = tf.expand_dims(grad_mask, -1)
-            #no_grad_mask =tf.cast(no_grad_mask, x.dtype)
-            #grad_mask = tf.cast(grad_mask, x.dtype)
-            #result = tf.placeholder(x.dtype, shape=broadcast_shape)
-            #result = tf.stop_gradient(tf.multiply(no_grad_mask, x)) + tf.multiply(grad_mask, x)
-            #print("Result size: {}".format(result.shape))
-            #return result
-            return x
+            if self.early_stop:
+                #print("x shape: {}".format(np.shape(x)))
+                done_mask = self.rollout.grad_mask
+                #print("mask shape: {}".format(np.shape(pseudo_dones)))
+                no_grad_mask = done_mask
+                grad_mask = 1 - done_mask 
+                sh = np.shape(x)
+                broadcast_shape = (sh[0], sh[1]) + sh[2:]
+                #print("mask shape: {}".format(broadcast_shape))
+                for i in range(len(broadcast_shape) - 2):
+                    no_grad_mask = tf.expand_dims(no_grad_mask, -1)
+                    grad_mask = tf.expand_dims(grad_mask, -1)
+                no_grad_mask =tf.cast(no_grad_mask, x.dtype)
+                grad_mask = tf.cast(grad_mask, x.dtype)
+                result = tf.placeholder(x.dtype, shape=broadcast_shape)
+                result = tf.stop_gradient(tf.multiply(no_grad_mask, x)) + tf.multiply(grad_mask, x)
+                #print("Result size: {}".format(result.shape))
+                return np.array(result)
+            else:
+                return x
 
         def resh(x):
             if self.nsegs_per_env == 1:
                 return x
             sh = x.shape
             return x.reshape((sh[0] * self.nsegs_per_env, self.nsteps_per_seg) + sh[2:])
+
         new_count = np.count_nonzero(self.rollout.buf_news)
         print(self.rollout.buf_news)
         print(new_count)
@@ -252,12 +258,14 @@ class PpoOptimizer(object):
             (self.stochpol.ph_ob, mask(resh(self.rollout.buf_obs))),
             (self.ph_ret, mask(resh(self.buf_rets))),
             (self.ph_adv, mask(resh(self.buf_advs))),
-            (self.stochpol.ph_vel, mask(resh(self.rollout.buf_vels))),
-            (self.stochpol.ph_prev_rew, mask(resh(self.rollout.buf_prev_ext_rews))),
-            (self.stochpol.ph_prev_ac, mask(resh(self.rollout.buf_prev_acs))),
         ]
         if self.depth_pred:
-            ph_buf.append((self.stochpol.ph_depths, mask(resh(self.rollout.buf_depths))))
+            ph_buf.extend([
+                (self.stochpol.ph_depths, mask(resh(self.rollout.buf_depths))),
+                (self.stochpol.ph_vel, mask(resh(self.rollout.buf_vels))),
+                (self.stochpol.ph_prev_rew, mask(resh(self.rollout.buf_prev_ext_rews))),
+                (self.stochpol.ph_prev_ac, mask(resh(self.rollout.buf_prev_acs))),
+            ])
         #print("Buff obs shape: {}".format(self.rollout.buf_obs.shape))
         #print("Buff rew shape: {}".format(self.rollout.buf_rews.shape))
         #print("Buff nlps shape: {}".format(self.rollout.buf_nlps.shape))
@@ -267,7 +275,10 @@ class PpoOptimizer(object):
              self.rollout.buf_obs_last.reshape([self.nenvs * self.nsegs_per_env, 1, *self.ob_space.shape]))
         ])
         mblossvals = []
-
+        #if self.lstm:
+            #print("Train lstm 1 state: {}, {}".format(self.rollout.train_lstm1_c, self.rollout.train_lstm1_h))
+            #if self.lstm2_size:
+                #print("Train lstm2 state: {}, {}".format(self.rollout.train_lstm2_c, self.rollout.train_lstm2_h))
         for _ in range(self.nepochs):
             np.random.shuffle(envinds)
             for start in range(0, self.nenvs * self.nsegs_per_env, envsperbatch):

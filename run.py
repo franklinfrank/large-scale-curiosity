@@ -124,7 +124,7 @@ class Trainer(object):
             self.feature_extractor = self.feature_extractor(policy=self.policy,
                                                             features_shared_with_policy=False,
                                                             feat_dim=512,
-                                                            layernormalize=hps['layernorm'], depth_pred = hps['depth_pred'])
+                                                            layernormalize=hps['layernorm'])
         if dyn:
             self.dynamics = dyn
             self.dynamics.restore()
@@ -166,14 +166,19 @@ class Trainer(object):
             lstm=hps['lstm'],
             lstm1_size=hps['lstm1_size'],
             lstm2_size=hps['lstm2_size'],
-            depth_pred=hps['depth_pred']
+            depth_pred=hps['depth_pred'],
+            beta_d=hps['beta'],
+            early_stop=hps['early_stop']
         )
-
         self.agent.to_report['aux'] = tf.reduce_mean(self.feature_extractor.loss)
-        self.agent.total_loss += self.agent.to_report['aux']
         self.agent.to_report['dyn_loss'] = tf.reduce_mean(self.dynamics.loss)
-        self.agent.total_loss += self.agent.to_report['dyn_loss']
-        self.agent.to_report['feat_var'] = tf.reduce_mean(tf.nn.moments(self.feature_extractor.features, [0, 1])[1])
+        self.agent.to_report['feat_var'] = tf.reduce_mean(tf.nn.moments(self.feature_extractor.features, [0,1])[1])
+        if hps['curiosity']:
+            #self.agent.to_report['aux'] = tf.reduce_mean(self.feature_extractor.loss)
+            self.agent.total_loss += self.agent.to_report['aux']
+            #self.agent.to_report['dyn_loss'] = tf.reduce_mean(self.dynamics.loss)
+            self.agent.total_loss += self.agent.to_report['dyn_loss']
+            #self.agent.to_report['feat_var'] = tf.reduce_mean(tf.nn.moments(self.feature_extractor.features, [0, 1])[1])
 
     def _set_env_vars(self):
         import numpy as np
@@ -247,9 +252,9 @@ def make_env_all_params(rank, add_monitor, args):
 
 def make_tune_env(rank, add_monitor, args):
     env = gym.make(args['tune_env'])
-    env = ProcessFrame84(env, crop=False)
-    env = FrameStack(env, 4)
-    env = DeepmindLabMaze(env, args['tune_env'], args['nsteps_per_seg'])
+    #env = ProcessFrame84(env, crop=False)
+    #env = FrameStack(env, 4)
+    env = DeepmindLabMaze(env, args['tune_env'], args['nsteps_per_seg'], depth=True)
     if add_monitor:
         env = Monitor(env, osp.join(logger.get_dir(), '%.2i' % rank))
     return env
@@ -296,6 +301,7 @@ def add_environments_params(parser):
 def add_optimization_params(parser):
     parser.add_argument('--lambda', type=float, default=0.95)
     parser.add_argument('--gamma', type=float, default=0.99)
+    parser.add_argument('--beta', type=float, default=0.1) #coefficient for depth pred loss
     parser.add_argument('--nminibatches', type=int, default=8)
     parser.add_argument('--norm_adv', type=int, default=1)
     parser.add_argument('--norm_rew', type=int, default=1)
@@ -342,6 +348,8 @@ if __name__ == '__main__':
     parser.add_argument('--lstm1_size', type=int, default=512)
     parser.add_argument('--lstm2_size', type=int, default=0)
     parser.add_argument('--depth_pred', type=int, default=0)
+    parser.add_argument('--curiosity', type=int, default=1) #flag to turn off all curiosity auxiliary optimization as well
+    parser.add_argument('--early_stop', type=int, default=0)  #flag for early stop
     args = parser.parse_args()
     if not args.restore_model:
         start_experiment(**args.__dict__)

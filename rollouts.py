@@ -11,7 +11,7 @@ from evaluator import Evaluator
 
 class Rollout(object):
     def __init__(self, ob_space, ac_space, nenvs, nsteps_per_seg, nsegs_per_env, nlumps, envs, policy, int_rew_coeff, ext_rew_coeff, \
-                   record_rollouts, dynamics, exp_name, env_name, video_log_freq, model_save_freq, use_apples, multi_envs=None, lstm=False, lstm1_size=512, lstm2_size=0, depth_pred=0):
+                   record_rollouts, dynamics, exp_name, env_name, video_log_freq, model_save_freq, use_apples, multi_envs=None, lstm=False, lstm1_size=512, lstm2_size=0, depth_pred=0, early_stop=0):
         self.nenvs = nenvs
         self.nsteps_per_seg = nsteps_per_seg
         self.nsegs_per_env = nsegs_per_env
@@ -43,6 +43,7 @@ class Rollout(object):
         self.buf_prev_ext_rews = np.empty((nenvs, self.nsteps), np.float32)
         self.buf_acs = np.empty((nenvs, self.nsteps, *self.ac_space.shape), self.ac_space.dtype)
         self.buf_prev_acs = np.empty((nenvs, self.nsteps, *self.ac_space.shape), self.ac_space.dtype)
+        self.prev_ac_ph = np.zeros((nenvs, *self.ac_space.shape), self.ac_space.dtype)
         #if not self.depth_pred:
         self.buf_obs = np.empty((nenvs, self.nsteps, *self.ob_space.shape), self.ob_space.dtype)
         self.buf_obs_last = np.empty((nenvs, self.nsegs_per_env, *self.ob_space.shape), np.float32)
@@ -50,8 +51,12 @@ class Rollout(object):
         #self.buf_obs = np.empty((nenvs, self.nsteps, 84, 84, 3), self.ob_space.dtype)
         #self.buf_obs_last = np.empty((nenvs, self.nsegs_per_env, 84, 84, 3), np.float32)
         #self.num_actions = self.ac_space.shape[0]
+        self.early_stop= early_stop
         if self.depth_pred:
             self.buf_depths = np.empty((nenvs, self.nsteps, 64))
+        if early_stop:
+            self.early_stops = np.zeros(nenvs)
+            self.grad_mask = np.empty((nenvs, self.nsteps))
         self.buf_news = np.zeros((nenvs, self.nsteps), np.float32)
         self.buf_new_last = self.buf_news[:, 0, ...].copy()
         self.buf_vpred_last = self.buf_vpreds[:, 0, ...].copy()
@@ -108,12 +113,6 @@ class Rollout(object):
         t = self.step_count % self.nsteps
         s = t % self.nsteps_per_seg
         ep_num = self.step_count // self.nsteps_per_seg
-        if s == 0 and self.lstm:
-            self.train_lstm1_c = self.policy.lstm1_c 
-            self.train_lstm1_h = self.policy.lstm1_h
-            if self.lstm2_size:
-                self.train_lstm2_c = self.policy.lstm2_c 
-                self.train_lstm2_h = self.policy.lstm2_h 
         for l in range(self.nlumps):
             obs, prevrews, news, infos = self.env_get(l)
             if self.depth_pred:
@@ -129,6 +128,13 @@ class Rollout(object):
                         if self.lstm2_size:
                             self.policy.lstm2_c[idx] = np.zeros(self.lstm2_size)
                             self.policy.lstm2_h[idx] = np.zeros(self.lstm2_size)
+            if s == 0 and self.lstm:
+                self.train_lstm1_c = self.policy.lstm1_c 
+                self.train_lstm1_h = self.policy.lstm1_h
+                if self.lstm2_size:
+                    self.train_lstm2_c = self.policy.lstm2_c 
+                    self.train_lstm2_h = self.policy.lstm2_h
+
 
             if l == 0 and self.video_log_freq > 0 and ep_num % self.video_log_freq == 0:
                 zero_env_obs = self.envs[0].get_latest_ob()
@@ -157,8 +163,10 @@ class Rollout(object):
                 epinfo.update(mzepinfo)
                 epinfo.update(retroepinfo)
                 if 'vel_trans' in info:
-                    step_vel = np.array([info['vel_trans'], info['vel_rot']]).flatten()
+                    step_vel = np.concatenate((info['vel_trans'], info['vel_rot']), axis=None)
                     vels.append(step_vel)
+                else:
+                    vels.append(np.zeros(6))
                 
                 if epinfo:
                     #print("epinfo: {}".format(epinfo))
@@ -184,12 +192,28 @@ class Rollout(object):
             if t > 0:
                 prev_acs = self.buf_acs[sli, t-1]
             else:
-                prev_acs = np.zeros(self.lump_stride)
-            acs, vpreds, nlps = self.policy.get_ac_value_nlp(obs, vels, prev_acs, prevrews)
+                prev_acs = self.prev_ac_ph
+            for i in range(len(news)):
+                if news[i]:
+                    prev_acs[i] = 0
+
+            if self.depth_pred:
+                acs, vpreds, nlps = self.policy.get_ac_value_nlp_extra_input(obs, vels, prev_acs, prevrews)
+            else:
+                acs, vpreds, nlps = self.policy.get_ac_value_nlp(obs)
             self.env_step(l, acs)
 
             # self.prev_feat[l] = dyn_feat
             # self.prev_acs[l] = acs
+            if self.early_stop:
+                for i in range(len(prevrews)):
+                    rew = prevrews[i]
+                    if rew >= 10:
+                        self.early_stops[i] = 1
+                    if news[i]:
+                        self.early_stops[i] = 0
+            if self.early_stop:
+                self.grad_mask[sli, t] = self.early_stops
             self.buf_obs[sli, t] = obs
             self.buf_news[sli, t] = news
             self.buf_vpreds[sli, t] = vpreds
@@ -202,6 +226,8 @@ class Rollout(object):
                 self.buf_depths[sli, t] = depths
             if t > 0:
                 self.buf_ext_rews[sli, t - 1] = prevrews
+            if s == self.nsteps_per_seg - 1:
+                self.prev_ac_ph[sli] = acs
             # if t > 0:
             #     dyn_logp = self.policy.call_reward(prev_feat, pol_feat, prev_acs)
             #
@@ -227,12 +253,16 @@ class Rollout(object):
                     self.buf_ext_rews[sli, t] = ext_rews
                     newvels = []
                     for vel_info in newinfos:
-                        print(vel_info)
                         if 'vel_trans' in vel_info:
-                            newvels.append(np.array(vel_info['vel_trans'], vel_info['vel_rot']).flatten())   
-                    if len(newvels) == 0:
-                        newvels = np.zeros((self.lump_stride, 6), np.float32)  
-                    _, self.buf_vpred_last[sli], _ = self.policy.get_ac_value_nlp(nextobs, newvels, acs, ext_rews)
+                            newvels.append(np.concatenate([vel_info['vel_trans'], vel_info['vel_rot']], axis=0))
+                        else:
+                            newvels.append(np.zeros(6)) 
+                    #if len(newvels) == 0:
+                        #newvels = np.zeros((self.lump_stride, 6), np.float32) 
+                    if self.depth_pred: 
+                        _, self.buf_vpred_last[sli], _ = self.policy.get_ac_value_nlp_extra_input(nextobs, newvels, acs, ext_rews)
+                    else:
+                        _, self.buf_vpred_last[sli], _ = self.policy.get_ac_value_nlp(nextobs)
                     # dyn_logp = self.policy.call_reward(self.prev_feat[l], last_pol_feat, prev_acs)
                     # dyn_logp = dyn_logp.reshape(-1, )
                     # int_rew = dyn_logp
@@ -243,7 +273,7 @@ class Rollout(object):
                 self.evaluator.eval_model(ep_num)
             if self.model_save_freq > 0 and ep_num % self.model_save_freq == 0:
                 self.policy.save_model(self.exp_name, ep_num)
-            print("Episode {}".format(ep_num))
+            print("Update {}".format(ep_num))
 
     def update_info(self):
         all_ep_infos = MPI.COMM_WORLD.allgather(self.ep_infos_new)
