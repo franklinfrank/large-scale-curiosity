@@ -183,6 +183,8 @@ class Rollout(object):
                     if 'found' in info:
                         epinfo['found'] = info['found']
                         #print("updated found")
+                    if 'visit_count' in info:
+                        epinfo['visit_count'] = info['visit_count']
                 
                     self.ep_infos_new.append((self.step_count, epinfo))
             #print(vels)
@@ -313,6 +315,9 @@ class Rollout(object):
             if 'found' in keys_:
                 self.stats['found_frac'] = np.mean(all_ep_infos['found'])
                 print("Found frac: {}".format(self.stats['found_frac']))
+            if 'visit_count' in keys_:
+                self.stats['visit_count'] = np.mean(all_ep_infos['visit_count'])
+                print("Visit count: {}".format(self.stats['visit_count']))
             #if self.multi_envs:
                 #for env in self.multi_envs:
                     #rew_key = env + "_reward"

@@ -31,6 +31,8 @@ class DeepmindLabMaze(gym.Wrapper):
         self.depth = depth
         #self.visited = [[False for i in range(15)]for j in range(15)]
         #self.covered = 0
+        self.visit_count = 0
+        self.visited_coords = []
 
     def preprocess(self, rgbd):
         rgb = rgbd[:,:,0:3]
@@ -48,10 +50,19 @@ class DeepmindLabMaze(gym.Wrapper):
         obs, reward, done, info = self.env.step(action)
         #if self.depth:
             #obs, depth = self.preprocess(obs)
+        if 'pos_trans' in info:
+            coords = info['pos_trans']
+            x_coord = coords[0] // 80
+            y_coord = coords[1] // 80
+            c_tuple = (x_coord, y_coord)
+            if c_tuple not in self.visited_coords:
+                self.visit_count += 1
+                self.visited_coords.append(c_tuple)
         if reward == 10:
             self.found = 1
         if done:
             info.update({'found': self.found})
+            info.update({'visit_count': self.visit_count})
             #print(info)
         return obs, reward, done, info
         #self.step_count += 1
@@ -82,6 +93,8 @@ class DeepmindLabMaze(gym.Wrapper):
         self.done = False
         self.info = None
         self.found = 0
+        self.visit_count = 0
+        self.visited_coords = []
         print("wrapper env reset")
         obs = self.env.reset()
         #obs, depth = self.preprocess(obs)
