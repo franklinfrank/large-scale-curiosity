@@ -14,6 +14,9 @@ LEVELS.append("dense_reward_gen_maze_155")
 LEVELS.append("dense_reward_gen_maze_156")
 for i in TEST_SUFFIXES:
     LEVELS.append("naren_manual_eliza_{}".format(i))
+for rew_type in ['dense', 'sparse', 'no']:
+    for i in range(20):
+        LEVELS.append("validation_maze_{}_{}".format(rew_type, i))
     
 def _to_pascal(text):
     return ''.join(map(lambda x: x.capitalize(), text.split('_')))
