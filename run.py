@@ -280,8 +280,9 @@ def get_experiment_environment(**args):
     process_seed = hash_seed(process_seed, max_bytes=4)
     set_global_seeds(process_seed)
     setup_mpi_gpus()
+    logdir = args['logdir']
 
-    logger_context = logger.scoped_configure(dir='./logs/' + 
+    logger_context = logger.scoped_configure(dir='./' logdir + '/' + 
                         datetime.datetime.now().strftime(args["expID"] + "-openai-%Y-%m-%d-%H-%M-%S-%f"),
                          format_strs=['stdout', 'log', 'csv', 'tensorboard'] if MPI.COMM_WORLD.Get_rank() == 0 else ['log'])
     tf_context = setup_tensorflow_session()
@@ -350,6 +351,7 @@ if __name__ == '__main__':
     parser.add_argument('--depth_pred', type=int, default=0)
     parser.add_argument('--curiosity', type=int, default=1) #flag to turn off all curiosity auxiliary optimization as well
     parser.add_argument('--early_stop', type=int, default=0)  #flag for early stop
+    parser.add_argument('--logdir', type=str, default='logs')
     args = parser.parse_args()
     if not args.restore_model:
         start_experiment(**args.__dict__)
