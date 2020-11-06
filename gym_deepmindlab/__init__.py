@@ -14,6 +14,12 @@ LEVELS.append("dense_reward_gen_maze_155")
 LEVELS.append("dense_reward_gen_maze_156")
 for i in TEST_SUFFIXES:
     LEVELS.append("naren_manual_eliza_{}".format(i))
+for i in range(1,6):
+    LEVELS.append("naren_manual_eliza_NEW4_var{}".format(i))
+    LEVELS.append("naren_manual_eliza_NEW4A_var{}".format(i))
+    LEVELS.append("naren_manual_eliza_NEW_var{}".format(i))
+    LEVELS.append("naren_manual_eliza_NEWA_var{}".format(i))
+
 for rew_type in ['dense', 'sparse', 'no']:
     for i in range(20):
         LEVELS.append("validation_maze_{}_{}".format(rew_type, i))
