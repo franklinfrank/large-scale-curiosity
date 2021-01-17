@@ -11,7 +11,7 @@ chardet==3.0.4
 Click==7.0
 cloudpickle==1.2.1
 Cython==0.29.13
-deepmind-lab==1.0
+#deepmind-lab==1.0
 dill==0.3.0
 dm-env==1.2
 dm-tree==0.1.2
@@ -23,7 +23,7 @@ google-auth-oauthlib==0.4.1
 google-pasta==0.1.8
 grpcio==1.26.0
 gym==0.10.5
-gym-deepmindlab==0.1.2
+#gym-deepmindlab==0.1.2
 h5py==2.10.0
 html5lib==0.9999999
 idna==2.8
@@ -54,10 +54,10 @@ requests-oauthlib==1.3.0
 rsa==4.0
 scipy==1.4.1
 six==1.12.0
-#tensorboard==1.14.0
-#tensorboard-plugin-wit==1.7.0
-#tensorflow==1.14.1
-#tensorflow-estimator==1.14.0
+tensorboard==1.14.0
+tensorboard-plugin-wit==1.7.0
+tensorflow==1.14.1
+tensorflow-estimator==1.14.0
 termcolor==1.1.0
 tqdm==4.35.0
 urllib3==1.25.3

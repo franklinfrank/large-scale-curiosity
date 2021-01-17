@@ -8,7 +8,8 @@ import os.path as osp
 from functools import partial
 
 import gym
-import gym_deepmindlab
+#import gym_deepmindlab
+#import unitygame
 import datetime
 import tensorflow.compat.v1 as tf
 from baselines import logger
@@ -67,6 +68,7 @@ class Trainer(object):
         self.envs_per_process = envs_per_process
         self.depth_pred = hps['depth_pred']
         self.num_timesteps = num_timesteps
+        self.env_kind = hps['env_kind']
         self._set_env_vars()
         if exp_name:
             self.exp_name = exp_name
@@ -182,12 +184,20 @@ class Trainer(object):
 
     def _set_env_vars(self):
         import numpy as np
-        env = self.make_env(0, add_monitor=False)
+        if self.env_kind == 'unity':
+            env = self.make_env(0, add_monitor=False)
+            #env_2 = self.make_env(0, add_monitor=False)
+            #env_3 = self.make_env(1, add_monitor=False)
+            #env_2.close()
+            #env_3.close()
+        else: 
+            env = self.make_env(0, add_monitor=False)
         self.ob_space, self.ac_space = env.observation_space, env.action_space
         self.env_ob_space = env.observation_space
         if self.depth_pred:
             self.ob_space = gym.spaces.Box(0, 255, shape=(84,84,3), dtype=np.uint8)
         self.ob_mean, self.ob_std = random_agent_ob_mean_std(env, depth_pred=self.hps['depth_pred'])
+        env.close()
         del env
         self.envs = [functools.partial(self.make_env, i) for i in range(self.envs_per_process)]
 
@@ -245,6 +255,11 @@ def make_env_all_params(rank, add_monitor, args):
             env = make_robo_pong()
         elif args["env"] == "hockey":
             env = make_robo_hockey()
+    elif args["env_kind"] == 'unity':
+        name = args['env']
+        #else:
+            #name = "UnityMaze{}-v0".format(rank + 1)
+        env = gym.make(name)
 
     if add_monitor:
         env = Monitor(env, osp.join(logger.get_dir(), '%.2i' % rank))
@@ -282,7 +297,7 @@ def get_experiment_environment(**args):
     setup_mpi_gpus()
     logdir = args['logdir']
 
-    logger_context = logger.scoped_configure(dir='./' logdir + '/' + 
+    logger_context = logger.scoped_configure(dir='./' + logdir + '/' + 
                         datetime.datetime.now().strftime(args["expID"] + "-openai-%Y-%m-%d-%H-%M-%S-%f"),
                          format_strs=['stdout', 'log', 'csv', 'tensorboard'] if MPI.COMM_WORLD.Get_rank() == 0 else ['log'])
     tf_context = setup_tensorflow_session()

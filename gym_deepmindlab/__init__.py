@@ -20,6 +20,18 @@ for i in range(1,6):
     LEVELS.append("naren_manual_eliza_NEW_var{}".format(i))
     LEVELS.append("naren_manual_eliza_NEWA_var{}".format(i))
 
+for i in [2,3,4,8,9,10]:
+    LEVELS.append("Maze{}E".format(i))
+    LEVELS.append("Maze{}E_NO".format(i))
+    LEVELS.append("Maze{}E_A".format(i))
+    LEVELS.append("Maze{}E_rand".format(i))
+    for j in [1,2]:
+        LEVELS.append("Maze{}E_var{}".format(i,j))
+        LEVELS.append("Maze{}E_A_var{}".format(i,j))
+for i in range(5):
+    LEVELS.append("labmaze_maze_sparse_{}".format(i))
+LEVELS.append("naren_manual_eliza_NEW4_rand")
+LEVELS.append("naren_manual_eliza_NEW_rand")
 for rew_type in ['dense', 'sparse', 'no']:
     for i in range(20):
         LEVELS.append("validation_maze_{}_{}".format(rew_type, i))

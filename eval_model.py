@@ -138,11 +138,20 @@ def start_eval(**args):
                                 ob = np.array(ob).reshape((1,84,84,3))
                                 #ob = np.array(ob).reshape((1,84,84,4))
                                 ep_images.append(env.unwrapped._last_observation)
-                                with open(trajectory_path, 'a') as f:
+                                if step == 0:
+                                    with open(trajectory_path, 'w') as f:
                                         f.write(format_obs("DEBUG.POS.TRANS", pos_trans))
                                         f.write(format_obs("DEBUG.POS.ROT", pos_rot))
                                         f.write(format_obs("VEL.TRANS", vel_trans))
                                         f.write(format_obs("VEL.ROT", vel_rot))
+                                else:
+
+                                    with open(trajectory_path, 'a') as f:
+                                        f.write(format_obs("DEBUG.POS.TRANS", pos_trans))
+                                        f.write(format_obs("DEBUG.POS.ROT", pos_rot))
+                                        f.write(format_obs("VEL.TRANS", vel_trans))
+                                        f.write(format_obs("VEL.ROT", vel_rot))
+
                                 if rew is None:
                                         eprews.append(0)
                                 elif rew >= 10:
@@ -180,7 +189,7 @@ if __name__ == "__main__":
         parser.add_argument('--seed', type=int, default=0)
         parser.add_argument('--env', type=str, default='DeepmindLabNavMazeStatic01-v0')
         parser.add_argument('--num_episodes', type=int, default=1)
-        parser.add_argument('--num_steps', type=int, default=200)
+        parser.add_argument('--num_steps', type=int, default=1000)
         parser.add_argument('--lstm', type=int, default=0)
         parser.add_argument('--lstm1_size', type=int, default=512)
         parser.add_argument('--lstm2_size', type=int, default=0)

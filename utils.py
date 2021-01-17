@@ -90,12 +90,15 @@ def setup_tensorflow_session():
 
 
 def random_agent_ob_mean_std(env, nsteps=10000, depth_pred=0):
+    print("starting random steps")
     ob = np.asarray(env.reset())
     if depth_pred:
         ob = ob[:,:,0:3]
     if MPI.COMM_WORLD.Get_rank() == 0:
         obs = [ob]
-        for _ in range(nsteps):
+        for i in range(nsteps):
+            if i % 100 == 0:
+                print('random step', i)
             ac = env.action_space.sample()
             ob, _, done, _ = env.step(ac)
             if done:

@@ -15,6 +15,7 @@ class Dynamics(object):
         self.last_ob = self.auxiliary_task.last_ob
         self.ac = self.auxiliary_task.ac
         self.ac_space = self.auxiliary_task.ac_space
+        self.num_actions = self.ac_space.n
         self.ob_mean = self.auxiliary_task.ob_mean
         self.ob_std = self.auxiliary_task.ob_std
         if predict_from_pixels:
@@ -44,7 +45,7 @@ class Dynamics(object):
         return x
 
     def get_loss(self):
-        ac = tf.one_hot(self.ac, self.ac_space.n, axis=2)
+        ac = tf.one_hot(self.ac, self.num_actions, axis=-1)
         sh = tf.shape(ac)
         ac = flatten_two_dims(ac)
 

@@ -22,7 +22,10 @@ class LSTMPolicy(object):
             self.ac_space = ac_space
             self.ac_pdtype = make_pdtype(ac_space)
             #print(ac_space.shape)
-            self.num_actions = ac_space.n
+            try:
+                self.num_actions = ac_space.n
+            except:
+                self.num_actions = sum(ac_space.nvec)
             #if self.depth_pred:
              #   self.ph_ob = tf.placeholder(dtype=tf.int32, shape=(None, None, 84, 84, 3), name='ob')
             self.ph_ob = tf.placeholder(dtype=tf.int32,
