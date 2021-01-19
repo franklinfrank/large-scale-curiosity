@@ -11,7 +11,8 @@ from evaluator import Evaluator
 
 class Rollout(object):
     def __init__(self, ob_space, ac_space, nenvs, nsteps_per_seg, nsegs_per_env, nlumps, envs, policy, int_rew_coeff, ext_rew_coeff, \
-                   record_rollouts, dynamics, exp_name, env_name, video_log_freq, model_save_freq, use_apples, multi_envs=None, lstm=False, lstm1_size=512, lstm2_size=0, depth_pred=0, early_stop=0):
+                   record_rollouts, dynamics, exp_name, env_name, video_log_freq, model_save_freq, use_apples, multi_envs=None, lstm=False, \
+                    lstm1_size=512, lstm2_size=0, depth_pred=0, aux_input=0, early_stop=0):
         self.nenvs = nenvs
         self.nsteps_per_seg = nsteps_per_seg
         self.nsegs_per_env = nsegs_per_env
@@ -32,6 +33,7 @@ class Rollout(object):
         self.lstm1_size = lstm1_size
         self.lstm2_size = lstm2_size
         self.depth_pred = depth_pred
+        self.aux_input = aux_input
 #        self.reward_fun = lambda ext_rew, int_rew: ext_rew_coeff * np.clip(ext_rew, -1., 1.) + int_rew_coeff * int_rew
         self.reward_fun = lambda ext_rew, int_rew: ext_rew_coeff*ext_rew + int_rew_coeff*int_rew
         self.evaluator = Evaluator(env_name, 1, exp_name, policy)
@@ -199,7 +201,7 @@ class Rollout(object):
                 if news[i]:
                     prev_acs[i] = 0
 
-            if self.depth_pred:
+            if self.aux_input:
                 acs, vpreds, nlps = self.policy.get_ac_value_nlp_extra_input(obs, vels, prev_acs, prevrews)
             else:
                 acs, vpreds, nlps = self.policy.get_ac_value_nlp(obs)
@@ -261,7 +263,7 @@ class Rollout(object):
                             newvels.append(np.zeros(6)) 
                     #if len(newvels) == 0:
                         #newvels = np.zeros((self.lump_stride, 6), np.float32) 
-                    if self.depth_pred: 
+                    if self.aux_input: 
                         _, self.buf_vpred_last[sli], _ = self.policy.get_ac_value_nlp_extra_input(nextobs, newvels, acs, ext_rews)
                     else:
                         _, self.buf_vpred_last[sli], _ = self.policy.get_ac_value_nlp(nextobs)

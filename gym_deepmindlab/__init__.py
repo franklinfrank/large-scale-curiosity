@@ -4,7 +4,7 @@ from gym import make
 LEVELS = ['lt_chasm', 'lt_hallway_slope', 'lt_horseshoe_color', 'lt_space_bounce_hard', \
 'nav_maze_random_goal_01','nav_maze_random_goal_02', 'nav_maze_random_goal_03', 'nav_maze_random_goal_01_no_apples', 'nav_maze_random_goal_02_no_apples', 'nav_maze_static_01', \
 'nav_maze_static_02', 'seekavoid_arena_01', 'stairway_to_melon', 'generated_maze_dense', 'generated_maze_sparse', 'generated_maze_no', 'generated_maze_sparse_rand', 'generated_maze_sparse_new_spawn',
-'generated_maze_dense_new_spawn', 'generated_maze_no_new_spawn']
+'generated_maze_dense_new_spawn', 'generated_maze_no_new_spawn', 'proc_gen_maze_sparse', 'proc_gen_maze_dense', 'proc_gen_maze_no']
 
 TEST_SUFFIXES = ['NEW', 'NEW4', 'NEWA', 'NEW4A', 'NEWno', 'NEW4no', 'NEWb', 'NEW4b', 'NEWA_DENSER', 'NEW4A_DENSER', 'NEWno_densest']
 
@@ -25,6 +25,14 @@ for i in range(1,6):
     LEVELS.append("naren_manual_eliza_NEW_var{}".format(i))
     LEVELS.append("naren_manual_eliza_NEWA_var{}".format(i))
 
+for i in [2,3,4,8,9,10]:
+    LEVELS.append("Maze{}E".format(i))
+    LEVELS.append("Maze{}E_A".format(i))
+    LEVELS.append("Maze{}E_NO".format(i))
+
+for rew_type in ['dense', 'sparse', 'no']:
+    for i in range(20):
+        LEVELS.append("validation_maze_{}_{}".format(rew_type, i))
     
 def _to_pascal(text):
     return ''.join(map(lambda x: x.capitalize(), text.split('_')))

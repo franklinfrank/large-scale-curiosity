@@ -37,8 +37,8 @@ class DeepmindLabEnv(gym.Env):
         obs = None if terminal else self._lab.observations()[self._colors]
         self._last_observation = obs if obs is not None else np.copy(self._last_observation)
         if not terminal:
-            _, _, vel_trans, vel_rot = self.get_pos_and_vel()
-            info = {'vel_trans': vel_trans, 'vel_rot': vel_rot}
+            pos_trans, _, vel_trans, vel_rot = self.get_pos_and_vel()
+            info = {'vel_trans': vel_trans, 'vel_rot': vel_rot, 'pos_trans': pos_trans}
         else:
             info = dict()
         return self._last_observation, reward, terminal, info

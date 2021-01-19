@@ -8,7 +8,8 @@ import os.path as osp
 from functools import partial
 
 import gym
-import gym_deepmindlab
+#import gym_deepmindlab
+#import unity_game
 import datetime
 import tensorflow.compat.v1 as tf
 from baselines import logger
@@ -66,6 +67,7 @@ class Trainer(object):
         self.hps = hps
         self.envs_per_process = envs_per_process
         self.depth_pred = hps['depth_pred']
+        self.aux_input = hps['aux_input']
         self.num_timesteps = num_timesteps
         self._set_env_vars()
         if exp_name:
@@ -91,7 +93,8 @@ class Trainer(object):
                     lstm2_size=hps['lstm2_size'],
                     layernormalize=False,
                     nl=tf.nn.leaky_relu,
-                    depth_pred=hps['depth_pred']
+                    depth_pred=hps['depth_pred'],
+                    aux_input=hps['aux_input'],
                 )
 
             else:
@@ -167,6 +170,7 @@ class Trainer(object):
             lstm1_size=hps['lstm1_size'],
             lstm2_size=hps['lstm2_size'],
             depth_pred=hps['depth_pred'],
+            aux_input=hps['aux_input'],
             beta_d=hps['beta'],
             early_stop=hps['early_stop']
         )
@@ -282,7 +286,7 @@ def get_experiment_environment(**args):
     setup_mpi_gpus()
     logdir = args['logdir']
 
-    logger_context = logger.scoped_configure(dir='./' logdir + '/' + 
+    logger_context = logger.scoped_configure(dir='./' +logdir + '/' + 
                         datetime.datetime.now().strftime(args["expID"] + "-openai-%Y-%m-%d-%H-%M-%S-%f"),
                          format_strs=['stdout', 'log', 'csv', 'tensorboard'] if MPI.COMM_WORLD.Get_rank() == 0 else ['log'])
     tf_context = setup_tensorflow_session()
@@ -349,6 +353,7 @@ if __name__ == '__main__':
     parser.add_argument('--lstm1_size', type=int, default=512)
     parser.add_argument('--lstm2_size', type=int, default=0)
     parser.add_argument('--depth_pred', type=int, default=0)
+    parser.add_argument('--aux_input', type=int, default=0)
     parser.add_argument('--curiosity', type=int, default=1) #flag to turn off all curiosity auxiliary optimization as well
     parser.add_argument('--early_stop', type=int, default=0)  #flag for early stop
     parser.add_argument('--logdir', type=str, default='logs')

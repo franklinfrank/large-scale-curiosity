@@ -70,6 +70,7 @@ def setup_mpi_gpus():
     processes_outranked_on_this_node = [n for n in nodes_ordered_by_rank[:MPI.COMM_WORLD.Get_rank()] if n == node_id]
     local_rank = len(processes_outranked_on_this_node)
     os.environ['CUDA_VISIBLE_DEVICES'] = str(available_gpus[local_rank])
+    #os.environ['CUDA_VISIBLE_DEVICES'] = str(1)
     print("GPUS: {}".format(os.environ['CUDA_VISIBLE_DEVICES']))
 
 

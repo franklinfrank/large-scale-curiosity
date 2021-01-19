@@ -24,7 +24,7 @@ class PpoOptimizer(object):
                  nminibatches,
                  normrew, normadv, use_news, ext_coeff, int_coeff,
                  nsteps_per_seg, nsegs_per_env, dynamics, exp_name, env_name, video_log_freq, model_save_freq,
-                 use_apples, agent_num=None, restore_name=None, multi_envs=None, lstm=False, lstm1_size=512, lstm2_size=0, depth_pred=0, beta_d=.1, early_stop=0):
+                 use_apples, agent_num=None, restore_name=None, multi_envs=None, lstm=False, lstm1_size=512, lstm2_size=0, depth_pred=0, beta_d=.1, early_stop=0, aux_input=0):
         self.dynamics = dynamics
         self.exp_name = exp_name
         self.env_name = env_name
@@ -37,6 +37,7 @@ class PpoOptimizer(object):
         self.lstm1_size = lstm1_size
         self.lstm2_size = lstm2_size
         self.depth_pred = depth_pred
+        self.aux_input = aux_input
         self.early_stop = early_stop
         with tf.variable_scope(scope):
             self.use_recorder = True
@@ -157,7 +158,7 @@ class PpoOptimizer(object):
                                dynamics=dynamics, exp_name=self.exp_name, env_name=self.env_name,
                                video_log_freq=self.video_log_freq, model_save_freq=self.model_save_freq,
                                use_apples=self.use_apples, multi_envs=self.multi_envs, lstm=self.lstm, lstm1_size=self.lstm1_size, lstm2_size=self.lstm2_size, depth_pred=self.depth_pred, 
-                               early_stop = self.early_stop)
+                               early_stop = self.early_stop, aux_input = self.aux_input)
 
         self.buf_advs = np.zeros((nenvs, self.rollout.nsteps), np.float32)
         self.buf_rets = np.zeros((nenvs, self.rollout.nsteps), np.float32)
@@ -262,6 +263,9 @@ class PpoOptimizer(object):
         if self.depth_pred:
             ph_buf.extend([
                 (self.stochpol.ph_depths, mask(resh(self.rollout.buf_depths))),
+            ])
+        if self.aux_input:
+            ph_buf.extend([
                 (self.stochpol.ph_vel, mask(resh(self.rollout.buf_vels))),
                 (self.stochpol.ph_prev_rew, mask(resh(self.rollout.buf_prev_ext_rews))),
                 (self.stochpol.ph_prev_ac, mask(resh(self.rollout.buf_prev_acs))),

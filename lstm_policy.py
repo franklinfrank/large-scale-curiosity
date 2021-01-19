@@ -7,7 +7,7 @@ from utils import getsess, lstm, small_convnet, activ, fc, flatten_two_dims, unf
 
 class LSTMPolicy(object):
     def __init__(self, ob_space, ac_space, hidsize, batchsize,
-                 ob_mean, ob_std, feat_dim, layernormalize, nl, lstm1_size, lstm2_size, scope="policy", depth_pred=0):
+                 ob_mean, ob_std, feat_dim, layernormalize, nl, lstm1_size, lstm2_size, scope="policy", depth_pred=0, aux_input=0):
         if layernormalize:
             print("Warning: policy is operating on top of layer-normed features. It might slow down the training.")
         self.layernormalize = layernormalize
@@ -18,6 +18,7 @@ class LSTMPolicy(object):
             self.lstm1_size = lstm1_size
             self.lstm2_size = lstm2_size
             self.depth_pred = depth_pred
+            self.aux_input = aux_input
             self.ob_space = ob_space
             self.ac_space = ac_space
             self.ac_pdtype = make_pdtype(ac_space)
@@ -30,6 +31,7 @@ class LSTMPolicy(object):
             self.ph_ac = self.ac_pdtype.sample_placeholder([None, None], name='ac')
             if self.depth_pred:
                 self.ph_depths = tf.placeholder(dtype=tf.int32, shape=(None, None, 64))
+            if self.aux_input:
                 self.ph_vel = tf.placeholder(dtype=tf.float32, shape=(None, None, 6), name='prev_vel')
                 self.ph_prev_ac = tf.placeholder(dtype=tf.int32, shape=(None, None), name='prev_ac')
                 self.ph_prev_rew = tf.placeholder(dtype=tf.float32, shape=(None, None), name='prev_rew')
@@ -64,14 +66,14 @@ class LSTMPolicy(object):
                 init_1 = tf.contrib.rnn.LSTMStateTuple(self.c_in_1, self.h_in_1)
                 if self.lstm2_size:
                     init_2 = tf.contrib.rnn.LSTMStateTuple(self.c_in_2, self.h_in_2)
-                if self.depth_pred:
+                if self.aux_input:
                     prev_rews = tf.expand_dims(self.ph_prev_rew, -1)
                     x = tf.concat([self.lstm_features, prev_rews], -1)
                 else:
                     x = self.lstm_features
                 x, self.c_out_1, self.h_out_1 = lstm(self.lstm1_size)(x, initial_state=init_1)
                 if self.lstm2_size:
-                    if self.depth_pred:
+                    if self.aux_input:
                         prev_acs = tf.one_hot(self.ph_prev_ac, depth=self.num_actions)
                         x = tf.concat([x, tf.cast(prev_acs, tf.float32)], -1)
                         x = tf.concat([x, self.ph_vel], -1)
@@ -115,10 +117,11 @@ class LSTMPolicy(object):
             tf.add_to_collection('h_out_1', self.h_out_1)
             tf.add_to_collection('c_in_1', self.c_in_1)
             tf.add_to_collection('h_in_1', self.h_in_1)
-            if self.depth_pred:
+            if self.aux_input:
                 tf.add_to_collection('ph_vel', self.ph_vel)
                 tf.add_to_collection('ph_prev_ac', self.ph_prev_ac)
                 tf.add_to_collection('ph_prev_rew', self.ph_prev_rew)
+            if self.depth_pred:
                 tf.add_to_collection('depth_loss_policy', self.depth_loss)
                 tf.add_to_collection('ph_depths', self.ph_depths)
             if self.lstm2_size > 0:
