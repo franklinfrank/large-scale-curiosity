@@ -76,6 +76,7 @@ def start_eval(**args):
                 rew_type = env_name
                 success_count = 0
                 total_rew = 0
+                total_steps = 0
                 for i in range(num_episodes):
                         trajectory_file = save_name + "_eval_on_" + rew_type  + "_itr" + str(i) + "_trajectory.txt"
                         if not os.path.exists("trajectories"):
@@ -94,6 +95,7 @@ def start_eval(**args):
                                 lstm2_c = np.zeros((1, args['lstm2_size']))
                                 lstm2_h = np.zeros((1, args['lstm2_size']))
                         success = 0
+                        step_num = num_steps
                         for step in range(num_steps):
                                 #print(step)
                                 if step == 0:
@@ -149,6 +151,7 @@ def start_eval(**args):
                                         print("Reached goal on step {}".format(step))
                                         eprews.append(rew)
                                         success = 1
+                                        step_num = step + 1
                                         break
                                         #ob = env.reset()
                                         #ob = np.array(ob)
@@ -162,13 +165,16 @@ def start_eval(**args):
                         print("Total reward is {}".format(sum(eprews)))
                         success_count += success
                         total_rew += sum(eprews)
+                        total_steps += step_num
                 print("Success rate: {}".format(success_count * 1.0 / num_episodes))
                 print("Avg reward: {}".format(total_rew * 1.0 / num_episodes))
+                print("Avg steps: {}".format(total_steps * 1.0 / num_episodes))
                 print("Eval name: {}".format(save_name + "_eval_on_" + rew_type))
                 with open("results/" + save_name + "_eval_on_" + rew_type + "_eval_results.txt", "w") as f:
                     f.write("Number of episodes: {}\n".format(num_episodes))
                     f.write("Success rate: {}\n".format(success_count * 1.0 / num_episodes))
                     f.write("Avg reward: {}\n".format(total_rew * 1.0 /  num_episodes))
+                    f.write("Avg steps: {}\n".format(total_steps * 1.0 / num_episodes))
 
 
 if __name__ == "__main__":
